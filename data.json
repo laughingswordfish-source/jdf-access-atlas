@@ -1,0 +1,14 @@
+[
+  {
+    "id": "china_beach",
+    "title": "China Beach Trailhead",
+    "coords": [48.437, -124.093],
+    "description": "Eastern trailhead access for the Juan de Fuca Trail."
+  },
+  {
+    "id": "sombrio",
+    "title": "Sombrio Beach Access Point",
+    "coords": [48.494, -124.297],
+    "description": "Access trail leading down from Hwy 14 parking to Sombrio Beach."
+  }
+]

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JDF Trail Access Atlas</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/gpx.min.js"></script>
+
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; height: 100vh; }
+    header { padding: 0.75rem 1rem; background: #1b2a4a; color: white; }
+    #map { flex: 1; }
+    #stats { padding: 12px 16px; background: #f8f9fa; border-top: 1px solid #ddd; max-height: 120px; overflow-y: auto; }
+    .popup-img { width: 100%; max-width: 220px; border-radius: 6px; margin-top: 8px; display: block; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h2 style="margin: 0; font-size: 1.25rem;">Juan de Fuca Trail Access Atlas</h2>
+  </header>
+
+  <div id="map"></div>
+
+  <div id="stats">
+    <strong style="display:block; margin-bottom: 6px;">Loaded Tracks & Splits:</strong>
+    <ul id="segment-list" style="margin: 0; padding-left: 20px;"><li>Loading tracks...</li></ul>
+  </div>
+
+  <script>
+    // 1. Initialize Leaflet Map
+    const map = L.map('map').setView([48.48, -124.25], 11);
+
+    // 2. Add OSM Tile Layer with referrerPolicy fix
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap contributors',
+      referrerPolicy: 'no-referrer-when-downgrade'
+    }).addTo(map);
+
+    // 3. Load Access Points from data.json
+    fetch('data.json')
+      .then(res => res.json())
+      .then(points => {
+        points.forEach(pt => {
+          const imgHtml = pt.photo ? `<img src="${pt.photo}" class="popup-img" alt="${pt.title}">` : '';
+          const popupContent = `
+            <strong style="font-size: 1.05rem;">${pt.title}</strong><br>
+            <span style="font-size: 0.9rem; color: #555;">${pt.description}</span>
+            ${imgHtml}
+          `;
+          L.marker(pt.coords).addTo(map).bindPopup(popupContent);
+        });
+      })
+      .catch(err => console.log('Notice: Add points to data.json to render markers.'));
+
+    // 4. Function to Load GPX Tracks
+    const segmentList = document.getElementById('segment-list');
+    segmentList.innerHTML = ''; // Clear default state
+
+    function loadGpxTrack(gpxPath, color = '#27ae60') {
+      new L.GPX(gpxPath, {
+        async: true,
+        polyline_options: { color: color, weight: 4, opacity: 0.85 }
+      }).on('loaded', function(e) {
+        const gpx = e.target;
+        map.fitBounds(gpx.getBounds());
+
+        const distKm = (gpx.get_distance() / 1000).toFixed(2);
+        const durationStr = gpx.get_duration_string(gpx.get_total_time(), false);
+
+        const item = document.createElement('li');
+        item.innerHTML = `<strong>${gpx.get_name() || gpxPath}</strong>: ${distKm} km | Duration: ${durationStr}`;
+        segmentList.appendChild(item);
+      }).addTo(map);
+    }
+
+    // Add your GPX files here once uploaded:
+    // loadGpxTrack('gpx/sample_route.gpx', '#e74c3c');
+  </script>
+</body>
+</html>
