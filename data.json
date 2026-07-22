@@ -2,22 +2,41 @@
   {
     "id": "china-beach",
     "title": "China Beach Trailhead",
-    "coords": [48.437, -124.093],
+    "coords": [
+      48.437,
+      -124.093
+    ],
     "description": "Eastern terminus of the JDF trail. Features a large parking lot, pit toilets, and paved access down to the beach.",
     "photo": "photos/china_beach.jpg"
   },
   {
     "id": "sombrio-beach",
     "title": "Sombrio Beach Access",
-    "coords": [48.494, -124.297],
+    "coords": [
+      48.494,
+      -124.297
+    ],
     "description": "Popular access point halfway along the trail. Famous for suspension bridge and hidden waterfall canyon.",
     "photo": "photos/sombrio_access.jpg"
   },
   {
     "id": "botanical-bay",
     "title": "Botanical Beach Trailhead",
-    "coords": [48.528, -124.415],
+    "coords": [
+      48.528,
+      -124.415
+    ],
     "description": "Western terminus near Port Renfrew. Known for intertidal tidepools and rich marine life.",
     "photo": "photos/botanical_beach.jpg"
+  },
+  {
+    "id": "pt_1784734903726",
+    "title": "Test",
+    "coords": [
+      48.1,
+      -124
+    ],
+    "description": "test",
+    "photo": ""
   }
 ]
