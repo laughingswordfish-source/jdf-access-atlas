@@ -20,6 +20,19 @@
     .popup-title { font-size: 1.05rem; font-weight: bold; color: #1b2a4a; margin-bottom: 4px; }
     .popup-desc { font-size: 0.85rem; color: #444; margin-bottom: 8px; line-height: 1.3; }
     .popup-img { width: 100%; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+
+    /* Permanent map badge label styling */
+    .trail-label {
+      background: rgba(27, 42, 74, 0.9);
+      border: 1px solid #1b2a4a;
+      color: #ffffff;
+      font-weight: bold;
+      font-size: 11px;
+      padding: 3px 7px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body>
@@ -36,17 +49,17 @@
   </div>
 
   <script>
-    // 1. Initialize Leaflet Map centered on JDF region
+    // 1. Initialize Map centered on JDF trail area
     const map = L.map('map').setView([48.48, -124.25], 11);
 
-    // 2. OpenStreetMap Layer
+    // 2. OpenStreetMap Layer with Tile Fix
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap contributors',
       referrerPolicy: 'no-referrer-when-downgrade'
     }).addTo(map);
 
-    // 3. Load Access Point Markers from data.json
+    // 3. Load Access Points from data.json
     fetch('data.json')
       .then(res => res.json())
       .then(points => {
@@ -64,45 +77,57 @@
       })
       .catch(err => console.log('data.json notice:', err));
 
-    // 4. Upgraded GPX Loader (Cleans up default markers & labels)
+    // 4. Function to Load GPX Tracks with Permanent Public Labels
     const segmentList = document.getElementById('segment-list');
 
-    function addGpxTrack(gpxPath, customName, trackColor = '#e74c3c') {
+    function addGpxTrack(gpxPath, trackName, trackColor = '#e74c3c') {
       new L.GPX(gpxPath, {
         async: true,
         polyline_options: { color: trackColor, weight: 5, opacity: 0.85 },
         marker_options: {
-          startIconUrl: null, // Hide internal GPX start marker icon
-          endIconUrl: null,   // Hide internal GPX end marker icon
+          startIconUrl: null,       // Hide default start pin
+          endIconUrl: null,         // Hide default end pin
+          wptIconUrls: { '': null }, // Suppress internal waypoints
           shadowUrl: null
         }
       }).on('loaded', function(e) {
         const gpx = e.target;
-        
-        // Calculate metrics
         const distKm = (gpx.get_distance() / 1000).toFixed(2);
         const durationStr = gpx.get_duration_string(gpx.get_total_time(), false);
 
-        // Bind custom click popup directly on the trail line
+        // Pin a permanent text badge at the center of the trail line
+        const bounds = gpx.getBounds();
+        const centerLatLng = bounds.getCenter();
+        
+        L.tooltip({
+          permanent: true,
+          direction: 'center',
+          className: 'trail-label'
+        })
+        .setContent(trackName)
+        .setLatLng(centerLatLng)
+        .addTo(map);
+
+        // Clickable popup directly on the trail polyline
         gpx.bindPopup(`
           <div style="font-family: sans-serif;">
-            <strong style="color: #1b2a4a; font-size: 1rem;">${customName}</strong><br>
+            <strong style="color: #1b2a4a; font-size: 1rem;">${trackName}</strong><br>
             <b>Distance:</b> ${distKm} km<br>
             <b>Time:</b> ${durationStr || 'N/A'}
           </div>
         `);
 
-        // Add to stats list below map
+        // Append metrics to bottom panel
         const item = document.createElement('li');
-        item.innerHTML = `<strong>${customName}</strong>: ${distKm} km | Elapsed Time: ${durationStr || 'N/A'}`;
+        item.innerHTML = `<strong>${trackName}</strong>: ${distKm} km | Elapsed Time: ${durationStr || 'N/A'}`;
         segmentList.appendChild(item);
 
-        map.fitBounds(gpx.getBounds());
+        map.fitBounds(bounds);
       }).addTo(map);
     }
 
     // -------------------------------------------------------------
-    // YOUR GPX TRACKS (Name them whatever you want here!)
+    // PERMANENT TRAIL NAMES (Visible to all site visitors)
     // -------------------------------------------------------------
     addGpxTrack('gpx/Bear_Beach_JDF.gpx', 'Bear Beach Trail', '#e74c3c');
     addGpxTrack('gpx/Hoard_Creek_JDF.gpx', 'Hoard Creek Trail', '#2980b9');
