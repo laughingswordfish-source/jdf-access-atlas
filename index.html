@@ -12,16 +12,15 @@
 
   <style>
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; height: 100vh; }
-    header { padding: 0.8rem 1.2rem; background: #1b2a4a; color: white; }
+    header { padding: 0.8rem 1.2rem; background: #1b2a4a; color: white; display: flex; justify-content: space-between; align-items: center; }
     #map { flex: 1; }
-    #stats { padding: 12px 16px; background: #f8f9fa; border-top: 2px solid #ddd; max-height: 160px; overflow-y: auto; }
+    #stats { padding: 12px 16px; background: #f8f9fa; border-top: 2px solid #ddd; max-height: 140px; overflow-y: auto; }
     
     .popup-container { width: 220px; }
     .popup-title { font-size: 1.05rem; font-weight: bold; color: #1b2a4a; margin-bottom: 4px; }
     .popup-desc { font-size: 0.85rem; color: #444; margin-bottom: 8px; line-height: 1.3; }
     .popup-img { width: 100%; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
 
-    /* Permanent map badge label styling */
     .trail-label {
       background: rgba(27, 42, 74, 0.9);
       border: 1px solid #1b2a4a;
@@ -33,12 +32,22 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.3);
       white-space: nowrap;
     }
+
+    /* Admin Modal Panel */
+    .admin-btn { background: #27ae60; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    #admin-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
+    .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 450px; max-height: 85vh; overflow-y: auto; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; }
+    .form-group input, .form-group textarea { width: 100%; padding: 6px; box-sizing: border-box; }
+    .close-btn { background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; float: right; }
   </style>
 </head>
 <body>
 
   <header>
     <h2 style="margin: 0; font-size: 1.25rem;">📍 Juan de Fuca Trail Atlas</h2>
+    <button class="admin-btn" onclick="toggleAdminModal(true)">🔐 Admin Upload</button>
   </header>
 
   <div id="map"></div>
@@ -48,18 +57,55 @@
     <ul id="segment-list" style="margin: 0; padding-left: 20px;"></ul>
   </div>
 
+  <div id="admin-modal">
+    <div class="modal-content">
+      <button class="close-btn" onclick="toggleAdminModal(false)">✖ Close</button>
+      <h3 style="margin-top:0; color:#1b2a4a;">Admin Portal</h3>
+
+      <div class="form-group">
+        <label>GitHub Personal Access Token:</label>
+        <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx" onchange="saveToken()">
+      </div>
+
+      <hr style="margin: 15px 0;">
+
+      <h4>➕ Add New Access Point</h4>
+      <div class="form-group">
+        <label>Point Title:</label>
+        <input type="text" id="ap-title" placeholder="e.g. Sombrio Trailhead">
+      </div>
+      <div class="form-group">
+        <label>Latitude, Longitude:</label>
+        <input type="text" id="ap-coords" placeholder="48.494, -124.297">
+      </div>
+      <div class="form-group">
+        <label>Description:</label>
+        <textarea id="ap-desc" rows="2"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Photo (Optional):</label>
+        <input type="file" id="ap-photo" accept="image/*">
+      </div>
+      <button class="admin-btn" onclick="uploadAccessPoint()" style="width:100%;">Save Access Point to GitHub</button>
+
+      <div id="status-msg" style="margin-top: 10px; font-weight: bold; font-size: 0.85rem; text-align: center;"></div>
+    </div>
+  </div>
+
   <script>
-    // 1. Initialize Map centered on JDF trail area
+    const REPO_OWNER = 'laughingswordfish-source';
+    const REPO_NAME = 'jdf-access-atlas';
+
+    // 1. Initialize Map
     const map = L.map('map').setView([48.48, -124.25], 11);
 
-    // 2. OpenStreetMap Layer with Tile Fix
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap contributors',
       referrerPolicy: 'no-referrer-when-downgrade'
     }).addTo(map);
 
-    // 3. Load Access Points from data.json
+    // Load saved access points
     fetch('data.json')
       .then(res => res.json())
       .then(points => {
@@ -77,63 +123,110 @@
       })
       .catch(err => console.log('data.json notice:', err));
 
-    // 4. Function to Load GPX Tracks with Permanent Public Labels
+    // Load GPX Tracks
     const segmentList = document.getElementById('segment-list');
 
     function addGpxTrack(gpxPath, trackName, trackColor = '#e74c3c') {
       new L.GPX(gpxPath, {
         async: true,
         polyline_options: { color: trackColor, weight: 5, opacity: 0.85 },
-        marker_options: {
-          startIconUrl: null,       // Hide default start pin
-          endIconUrl: null,         // Hide default end pin
-          wptIconUrls: { '': null }, // Suppress internal waypoints
-          shadowUrl: null
-        }
+        marker_options: { startIconUrl: null, endIconUrl: null, wptIconUrls: { '': null }, shadowUrl: null }
       }).on('loaded', function(e) {
         const gpx = e.target;
         const distKm = (gpx.get_distance() / 1000).toFixed(2);
         const durationStr = gpx.get_duration_string(gpx.get_total_time(), false);
 
-        // Pin a permanent text badge at the center of the trail line
         const bounds = gpx.getBounds();
-        const centerLatLng = bounds.getCenter();
-        
-        L.tooltip({
-          permanent: true,
-          direction: 'center',
-          className: 'trail-label'
-        })
-        .setContent(trackName)
-        .setLatLng(centerLatLng)
-        .addTo(map);
+        L.tooltip({ permanent: true, direction: 'center', className: 'trail-label' })
+          .setContent(trackName)
+          .setLatLng(bounds.getCenter())
+          .addTo(map);
 
-        // Clickable popup directly on the trail polyline
-        gpx.bindPopup(`
-          <div style="font-family: sans-serif;">
-            <strong style="color: #1b2a4a; font-size: 1rem;">${trackName}</strong><br>
-            <b>Distance:</b> ${distKm} km<br>
-            <b>Time:</b> ${durationStr || 'N/A'}
-          </div>
-        `);
+        gpx.bindPopup(`<b>${trackName}</b><br>Distance: ${distKm} km<br>Time: ${durationStr || 'N/A'}`);
 
-        // Append metrics to bottom panel
         const item = document.createElement('li');
         item.innerHTML = `<strong>${trackName}</strong>: ${distKm} km | Elapsed Time: ${durationStr || 'N/A'}`;
         segmentList.appendChild(item);
-
-        map.fitBounds(bounds);
       }).addTo(map);
     }
 
-    // -------------------------------------------------------------
-    // PERMANENT TRAIL NAMES (Visible to all site visitors)
-    // -------------------------------------------------------------
+    // GPX Tracks list
     addGpxTrack('gpx/Bear_Beach_JDF.gpx', 'Bear Beach Trail', '#e74c3c');
     addGpxTrack('gpx/Hoard_Creek_JDF.gpx', 'Hoard Creek Trail', '#2980b9');
     addGpxTrack('gpx/Lines_Creek_JDF.gpx', 'Lines Creek Trail', '#27ae60');
     addGpxTrack('gpx/Loss_Creek_JDF.gpx', 'Loss Creek Trail', '#8e44ad');
 
+    // --- Admin Logic ---
+    function toggleAdminModal(show) {
+      document.getElementById('admin-modal').style.display = show ? 'flex' : 'none';
+      if (show) {
+        document.getElementById('gh-token').value = localStorage.getItem('jdf_gh_token') || '';
+      }
+    }
+
+    function saveToken() {
+      const token = document.getElementById('gh-token').value.trim();
+      localStorage.setItem('jdf_gh_token', token);
+    }
+
+    async function uploadAccessPoint() {
+      const token = localStorage.getItem('jdf_gh_token');
+      const status = document.getElementById('status-msg');
+      if (!token) { status.style.color = 'red'; status.innerText = 'Please enter a GitHub Token!'; return; }
+
+      const title = document.getElementById('ap-title').value.trim();
+      const coordsStr = document.getElementById('ap-coords').value.trim();
+      const desc = document.getElementById('ap-desc').value.trim();
+      const photoFile = document.getElementById('ap-photo').files[0];
+
+      if (!title || !coordsStr) { status.style.color = 'red'; status.innerText = 'Title & Coords required!'; return; }
+
+      status.style.color = 'blue'; status.innerText = 'Uploading to GitHub...';
+
+      try {
+        const coords = coordsStr.split(',').map(n => parseFloat(n.trim()));
+        let photoPath = '';
+
+        // 1. Upload photo if selected
+        if (photoFile) {
+          const reader = new FileReader();
+          const base64 = await new Promise(resolve => {
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.readAsDataURL(photoFile);
+          });
+
+          photoPath = `photos/${Date.now()}_${photoFile.name}`;
+          await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${photoPath}`, {
+            method: 'PUT',
+            headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: `Upload photo: ${photoFile.name}`, content: base64 })
+          });
+        }
+
+        // 2. Fetch data.json, update array, and commit back
+        const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/data.json`, {
+          headers: { 'Authorization': `token ${token}` }
+        });
+        const fileData = await res.json();
+        const currentPoints = JSON.parse(atob(fileData.content));
+
+        currentPoints.push({ id: `pt_${Date.now()}`, title: title, coords: coords, description: desc, photo: photoPath });
+
+        const updatedContent = btoa(unescape(encodeURIComponent(JSON.stringify(currentPoints, null, 2))));
+
+        await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/data.json`, {
+          method: 'PUT',
+          headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: `Add access point: ${title}`, content: updatedContent, sha: fileData.sha })
+        });
+
+        status.style.color = 'green';
+        status.innerText = 'Saved! GitHub Pages will refresh in 1-2 mins.';
+      } catch (err) {
+        status.style.color = 'red';
+        status.innerText = 'Error saving: ' + err.message;
+      }
+    }
   </script>
 </body>
 </html>
