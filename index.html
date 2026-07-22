@@ -36,10 +36,10 @@
   </div>
 
   <script>
-    // 1. Initialize Leaflet Map centered on Vancouver Island's Southwest Coast
+    // 1. Initialize Leaflet Map centered on JDF region
     const map = L.map('map').setView([48.48, -124.25], 11);
 
-    // 2. OpenStreetMap Layer with Tile Referrer Fix
+    // 2. OpenStreetMap Layer
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap contributors',
@@ -64,33 +64,50 @@
       })
       .catch(err => console.log('data.json notice:', err));
 
-    // 4. Function to Load & Plot GPX Tracks
+    // 4. Upgraded GPX Loader (Cleans up default markers & labels)
     const segmentList = document.getElementById('segment-list');
 
-    function addGpxTrack(gpxPath, trackLabel, trackColor = '#e74c3c') {
+    function addGpxTrack(gpxPath, customName, trackColor = '#e74c3c') {
       new L.GPX(gpxPath, {
         async: true,
-        polyline_options: { color: trackColor, weight: 4, opacity: 0.85 }
+        polyline_options: { color: trackColor, weight: 5, opacity: 0.85 },
+        marker_options: {
+          startIconUrl: null, // Hide internal GPX start marker icon
+          endIconUrl: null,   // Hide internal GPX end marker icon
+          shadowUrl: null
+        }
       }).on('loaded', function(e) {
         const gpx = e.target;
-        map.fitBounds(gpx.getBounds()); // Automatically zoom map to fit all tracks
-
+        
+        // Calculate metrics
         const distKm = (gpx.get_distance() / 1000).toFixed(2);
         const durationStr = gpx.get_duration_string(gpx.get_total_time(), false);
 
+        // Bind custom click popup directly on the trail line
+        gpx.bindPopup(`
+          <div style="font-family: sans-serif;">
+            <strong style="color: #1b2a4a; font-size: 1rem;">${customName}</strong><br>
+            <b>Distance:</b> ${distKm} km<br>
+            <b>Time:</b> ${durationStr || 'N/A'}
+          </div>
+        `);
+
+        // Add to stats list below map
         const item = document.createElement('li');
-        item.innerHTML = `<strong>${trackLabel}</strong>: ${distKm} km | Elapsed Time: ${durationStr || 'N/A'}`;
+        item.innerHTML = `<strong>${customName}</strong>: ${distKm} km | Elapsed Time: ${durationStr || 'N/A'}`;
         segmentList.appendChild(item);
+
+        map.fitBounds(gpx.getBounds());
       }).addTo(map);
     }
 
     // -------------------------------------------------------------
-    // YOUR LOADED GPX TRACKS FROM /gpx/
+    // YOUR GPX TRACKS (Name them whatever you want here!)
     // -------------------------------------------------------------
-    addGpxTrack('gpx/Bear_Beach_JDF.gpx', 'Bear Beach Trail Segment', '#e74c3c');
-    addGpxTrack('gpx/Hoard_Creek_JDF.gpx', 'Hoard Creek Access Route', '#2980b9');
-    addGpxTrack('gpx/Lines_Creek_JDF.gpx', 'Lines Creek Segment', '#27ae60');
-    addGpxTrack('gpx/Loss_Creek_JDF.gpx', 'Loss Creek Segment', '#8e44ad');
+    addGpxTrack('gpx/Bear_Beach_JDF.gpx', 'Bear Beach Trail', '#e74c3c');
+    addGpxTrack('gpx/Hoard_Creek_JDF.gpx', 'Hoard Creek Trail', '#2980b9');
+    addGpxTrack('gpx/Lines_Creek_JDF.gpx', 'Lines Creek Trail', '#27ae60');
+    addGpxTrack('gpx/Loss_Creek_JDF.gpx', 'Loss Creek Trail', '#8e44ad');
 
   </script>
 </body>
