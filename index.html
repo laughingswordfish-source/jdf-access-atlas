@@ -10,6 +10,8 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/gpx.min.js"></script>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <style>
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; height: 100vh; }
     header { padding: 0.8rem 1.2rem; background: #1b2a4a; color: white; display: flex; justify-content: space-between; align-items: center; }
@@ -33,14 +35,13 @@
       white-space: nowrap;
     }
 
-    /* Admin Modal Panel */
+    /* Modal Styling for Elevation Profile & Admin */
     .admin-btn { background: #27ae60; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-    #admin-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
-    .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 450px; max-height: 85vh; overflow-y: auto; }
-    .form-group { margin-bottom: 12px; }
-    .form-group label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; }
-    .form-group input, .form-group textarea { width: 100%; padding: 6px; box-sizing: border-box; }
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.65); z-index: 1000; justify-content: center; align-items: center; }
+    .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 550px; max-height: 85vh; overflow-y: auto; }
     .close-btn { background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; float: right; }
+
+    .elevation-stats { display: flex; justify-content: space-between; background: #f0f4f8; padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 0.85rem; }
   </style>
 </head>
 <body>
@@ -53,37 +54,54 @@
   <div id="map"></div>
 
   <div id="stats">
-    <strong style="display:block; margin-bottom: 6px; color: #333;">📊 Loaded Trail Segments & Splits:</strong>
+    <strong style="display:block; margin-bottom: 6px; color: #333;">📊 Loaded Trail Segments & Elevation Stats:</strong>
     <ul id="segment-list" style="margin: 0; padding-left: 20px;"></ul>
   </div>
 
-  <div id="admin-modal">
+  <div id="elevation-modal" class="modal-overlay">
+    <div class="modal-content">
+      <button class="close-btn" onclick="toggleElevationModal(false)">✖ Close</button>
+      <h3 id="elevation-title" style="margin-top:0; color:#1b2a4a;">Trail Elevation Profile</h3>
+      
+      <div class="elevation-stats">
+        <div>⛰️ <b>Gain:</b> <span id="ele-gain">--</span> m</div>
+        <div>📈 <b>Max Ele:</b> <span id="ele-max">--</span> m</div>
+        <div>📉 <b>Min Ele:</b> <span id="ele-min">--</span> m</div>
+      </div>
+
+      <div style="width: 100%; height: 260px;">
+        <canvas id="elevationChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div id="admin-modal" class="modal-overlay">
     <div class="modal-content">
       <button class="close-btn" onclick="toggleAdminModal(false)">✖ Close</button>
       <h3 style="margin-top:0; color:#1b2a4a;">Admin Portal</h3>
 
-      <div class="form-group">
-        <label>GitHub Personal Access Token:</label>
-        <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx" onchange="saveToken()">
+      <div style="margin-bottom:12px;">
+        <label style="display:block; font-size:0.85rem; font-weight:bold; margin-bottom:4px;">GitHub Access Token:</label>
+        <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx" onchange="saveToken()" style="width:100%; padding:6px; box-sizing:border-box;">
       </div>
 
       <hr style="margin: 15px 0;">
 
       <h4>➕ Add New Access Point</h4>
-      <div class="form-group">
-        <label>Point Title:</label>
-        <input type="text" id="ap-title" placeholder="e.g. Sombrio Trailhead">
+      <div style="margin-bottom:8px;">
+        <label style="display:block; font-size:0.85rem; font-weight:bold;">Point Title:</label>
+        <input type="text" id="ap-title" placeholder="e.g. Sombrio Trailhead" style="width:100%; padding:6px; box-sizing:border-box;">
       </div>
-      <div class="form-group">
-        <label>Latitude, Longitude:</label>
-        <input type="text" id="ap-coords" placeholder="48.494, -124.297">
+      <div style="margin-bottom:8px;">
+        <label style="display:block; font-size:0.85rem; font-weight:bold;">Latitude, Longitude:</label>
+        <input type="text" id="ap-coords" placeholder="48.494, -124.297" style="width:100%; padding:6px; box-sizing:border-box;">
       </div>
-      <div class="form-group">
-        <label>Description:</label>
-        <textarea id="ap-desc" rows="2"></textarea>
+      <div style="margin-bottom:8px;">
+        <label style="display:block; font-size:0.85rem; font-weight:bold;">Description:</label>
+        <textarea id="ap-desc" rows="2" style="width:100%; padding:6px; box-sizing:border-box;"></textarea>
       </div>
-      <div class="form-group">
-        <label>Photo (Optional):</label>
+      <div style="margin-bottom:12px;">
+        <label style="display:block; font-size:0.85rem; font-weight:bold;">Photo (Optional):</label>
         <input type="file" id="ap-photo" accept="image/*">
       </div>
       <button class="admin-btn" onclick="uploadAccessPoint()" style="width:100%;">Save Access Point to GitHub</button>
@@ -99,13 +117,21 @@
     // 1. Initialize Map
     const map = L.map('map').setView([48.48, -124.25], 11);
 
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // 2. Basemap Layers (Standard OSM + OpenTopoMap)
+    const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap contributors',
       referrerPolicy: 'no-referrer-when-downgrade'
     }).addTo(map);
 
-    // Load saved access points
+    const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      maxZoom: 17,
+      attribution: '© OpenTopoMap contributors'
+    });
+
+    L.control.layers({ "Standard Map": osm, "Terrain / Topo Map": topo }).addTo(map);
+
+    // 3. Load Access Points
     fetch('data.json')
       .then(res => res.json())
       .then(points => {
@@ -123,8 +149,9 @@
       })
       .catch(err => console.log('data.json notice:', err));
 
-    // Load GPX Tracks
+    // 4. GPX Loader with Elevation Profile Chart
     const segmentList = document.getElementById('segment-list');
+    let elevationChartInstance = null;
 
     function addGpxTrack(gpxPath, trackName, trackColor = '#e74c3c') {
       new L.GPX(gpxPath, {
@@ -135,38 +162,113 @@
         const gpx = e.target;
         const distKm = (gpx.get_distance() / 1000).toFixed(2);
         const durationStr = gpx.get_duration_string(gpx.get_total_time(), false);
+        const eleGain = Math.round(gpx.get_elevation_gain());
+        const eleMax = Math.round(gpx.get_elevation_max());
+        const eleMin = Math.round(gpx.get_elevation_min());
 
+        // Extract elevation profile points along the track
+        const eleData = [];
+        const labels = [];
+        let accumulatedDist = 0;
+
+        gpx.get_layers().forEach(layer => {
+          if (layer instanceof L.Polyline) {
+            const latlngs = layer.getLatLngs();
+            for (let i = 0; i < latlngs.length; i++) {
+              if (i > 0) accumulatedDist += latlngs[i].distanceTo(latlngs[i - 1]) / 1000;
+              if (latlngs[i].meta && latlngs[i].meta.ele !== undefined) {
+                labels.push(accumulatedDist.toFixed(1) + ' km');
+                eleData.push(Math.round(latlngs[i].meta.ele));
+              }
+            }
+          }
+        });
+
+        // Pin badge on map
         const bounds = gpx.getBounds();
         L.tooltip({ permanent: true, direction: 'center', className: 'trail-label' })
           .setContent(trackName)
           .setLatLng(bounds.getCenter())
           .addTo(map);
 
-        gpx.bindPopup(`<b>${trackName}</b><br>Distance: ${distKm} km<br>Time: ${durationStr || 'N/A'}`);
+        // Clickable popup on trail line
+        const popupContent = document.createElement('div');
+        popupContent.style.fontFamily = 'sans-serif';
+        popupContent.innerHTML = `
+          <b>${trackName}</b><br>
+          <b>Distance:</b> ${distKm} km<br>
+          <b>Time:</b> ${durationStr || 'N/A'}<br>
+          <b>Ele Gain:</b> ${eleGain} m<br><br>
+          <button style="cursor:pointer; background:#1b2a4a; color:white; border:none; padding:4px 8px; border-radius:4px;" 
+            onclick="showElevationChart('${trackName}', ${JSON.stringify(labels)}, ${JSON.stringify(eleData)}, ${eleGain}, ${eleMax}, ${eleMin})">
+            📈 View Elevation Chart
+          </button>
+        `;
 
+        gpx.bindPopup(popupContent);
+
+        // Stats panel entry
         const item = document.createElement('li');
-        item.innerHTML = `<strong>${trackName}</strong>: ${distKm} km | Elapsed Time: ${durationStr || 'N/A'}`;
+        item.style.marginBottom = "4px";
+        item.innerHTML = `<strong>${trackName}</strong>: ${distKm} km | Gain: ${eleGain}m | <a href="#" style="color:#2980b9; font-weight:bold;" onclick="showElevationChart('${trackName}', ${JSON.stringify(labels)}, ${JSON.stringify(eleData)}, ${eleGain}, ${eleMax}, ${eleMin}); return false;">View Terrain Chart</a>`;
         segmentList.appendChild(item);
       }).addTo(map);
     }
 
-    // GPX Tracks list
+    // Load Tracks
     addGpxTrack('gpx/Bear_Beach_JDF.gpx', 'Bear Beach Trail', '#e74c3c');
     addGpxTrack('gpx/Hoard_Creek_JDF.gpx', 'Hoard Creek Trail', '#2980b9');
     addGpxTrack('gpx/Lines_Creek_JDF.gpx', 'Lines Creek Trail', '#27ae60');
     addGpxTrack('gpx/Loss_Creek_JDF.gpx', 'Loss Creek Trail', '#8e44ad');
 
-    // --- Admin Logic ---
+    // --- Chart & Modal Logic ---
+    function showElevationChart(title, labels, data, gain, maxEle, minEle) {
+      document.getElementById('elevation-title').innerText = title + ' - Elevation Profile';
+      document.getElementById('ele-gain').innerText = gain;
+      document.getElementById('ele-max').innerText = maxEle;
+      document.getElementById('ele-min').innerText = minEle;
+
+      toggleElevationModal(true);
+
+      const ctx = document.getElementById('elevationChart').getContext('2d');
+      if (elevationChartInstance) elevationChartInstance.destroy();
+
+      elevationChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Elevation (meters)',
+            data: data,
+            borderColor: '#27ae60',
+            backgroundColor: 'rgba(39, 174, 96, 0.2)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { title: { display: true, text: 'Distance along trail' } },
+            y: { title: { display: true, text: 'Elevation (m)' } }
+          }
+        }
+      });
+    }
+
+    function toggleElevationModal(show) {
+      document.getElementById('elevation-modal').style.display = show ? 'flex' : 'none';
+    }
+
     function toggleAdminModal(show) {
       document.getElementById('admin-modal').style.display = show ? 'flex' : 'none';
-      if (show) {
-        document.getElementById('gh-token').value = localStorage.getItem('jdf_gh_token') || '';
-      }
+      if (show) document.getElementById('gh-token').value = localStorage.getItem('jdf_gh_token') || '';
     }
 
     function saveToken() {
-      const token = document.getElementById('gh-token').value.trim();
-      localStorage.setItem('jdf_gh_token', token);
+      localStorage.setItem('jdf_gh_token', document.getElementById('gh-token').value.trim());
     }
 
     async function uploadAccessPoint() {
@@ -187,7 +289,6 @@
         const coords = coordsStr.split(',').map(n => parseFloat(n.trim()));
         let photoPath = '';
 
-        // 1. Upload photo if selected
         if (photoFile) {
           const reader = new FileReader();
           const base64 = await new Promise(resolve => {
@@ -203,7 +304,6 @@
           });
         }
 
-        // 2. Fetch data.json, update array, and commit back
         const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/data.json`, {
           headers: { 'Authorization': `token ${token}` }
         });
