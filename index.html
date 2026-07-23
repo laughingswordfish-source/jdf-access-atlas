@@ -38,10 +38,15 @@
       white-space: nowrap;
     }
 
+    /* Modal & Admin Styling */
     .admin-btn { background: #27ae60; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
     .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.65); z-index: 1000; justify-content: center; align-items: center; }
     .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 550px; max-height: 85vh; overflow-y: auto; }
     .close-btn { background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; float: right; }
+
+    .admin-tabs { display: flex; gap: 8px; margin: 15px 0 10px 0; border-bottom: 2px solid #ddd; }
+    .tab-btn { padding: 6px 12px; border: none; background: #eee; cursor: pointer; border-radius: 4px 4px 0 0; font-weight: bold; }
+    .tab-btn.active { background: #1b2a4a; color: white; }
 
     .elevation-stats { display: flex; justify-content: space-around; background: #f0f4f8; padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 0.85rem; }
   </style>
@@ -50,7 +55,7 @@
 
   <header>
     <h2 style="margin: 0; font-size: 1.25rem;">📍 Juan de Fuca Trail Atlas</h2>
-    <button class="admin-btn" onclick="toggleAdminModal(true)">🔐 Admin Upload</button>
+    <button class="admin-btn" onclick="toggleAdminModal(true)">🔐 Admin Portal</button>
   </header>
 
   <div id="map"></div>
@@ -89,26 +94,48 @@
         <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx" onchange="saveToken()" style="width:100%; padding:6px; box-sizing:border-box;">
       </div>
 
-      <hr style="margin: 15px 0;">
+      <div class="admin-tabs">
+        <button class="tab-btn active" id="tab-gpx-btn" onclick="switchTab('gpx')">➕ Upload GPX Track</button>
+        <button class="tab-btn" id="tab-ap-btn" onclick="switchTab('ap')">📍 Add Access Point</button>
+      </div>
 
-      <h4>➕ Add New Access Point</h4>
-      <div style="margin-bottom:8px;">
-        <label style="display:block; font-size:0.85rem; font-weight:bold;">Point Title:</label>
-        <input type="text" id="ap-title" placeholder="e.g. Sombrio Trailhead" style="width:100%; padding:6px; box-sizing:border-box;">
+      <!-- Tab 1: Upload GPX Track -->
+      <div id="tab-gpx">
+        <div style="margin-bottom:8px;">
+          <label style="display:block; font-size:0.85rem; font-weight:bold;">Select GPX File:</label>
+          <input type="file" id="gpx-file" accept=".gpx">
+        </div>
+        <div style="margin-bottom:8px;">
+          <label style="display:block; font-size:0.85rem; font-weight:bold;">Trail Name on Map:</label>
+          <input type="text" id="gpx-name" placeholder="e.g. Sombrio to Botanical" style="width:100%; padding:6px; box-sizing:border-box;">
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="display:block; font-size:0.85rem; font-weight:bold;">Line Color:</label>
+          <input type="color" id="gpx-color" value="#e74c3c" style="width:100%; height:35px; cursor:pointer;">
+        </div>
+        <button class="admin-btn" onclick="uploadGpxTrack()" style="width:100%;">Upload Track to GitHub</button>
       </div>
-      <div style="margin-bottom:8px;">
-        <label style="display:block; font-size:0.85rem; font-weight:bold;">Latitude, Longitude:</label>
-        <input type="text" id="ap-coords" placeholder="48.494, -124.297" style="width:100%; padding:6px; box-sizing:border-box;">
+
+      <!-- Tab 2: Add Access Point -->
+      <div id="tab-ap" style="display:none;">
+        <div style="margin-bottom:8px;">
+          <label style="display:block; font-size:0.85rem; font-weight:bold;">Point Title:</label>
+          <input type="text" id="ap-title" placeholder="e.g. Sombrio Trailhead" style="width:100%; padding:6px; box-sizing:border-box;">
+        </div>
+        <div style="margin-bottom:8px;">
+          <label style="display:block; font-size:0.85rem; font-weight:bold;">Latitude, Longitude:</label>
+          <input type="text" id="ap-coords" placeholder="48.494, -124.297" style="width:100%; padding:6px; box-sizing:border-box;">
+        </div>
+        <div style="margin-bottom:8px;">
+          <label style="display:block; font-size:0.85rem; font-weight:bold;">Description:</label>
+          <textarea id="ap-desc" rows="2" style="width:100%; padding:6px; box-sizing:border-box;"></textarea>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="display:block; font-size:0.85rem; font-weight:bold;">Photo (Optional):</label>
+          <input type="file" id="ap-photo" accept="image/*">
+        </div>
+        <button class="admin-btn" onclick="uploadAccessPoint()" style="width:100%;">Save Access Point to GitHub</button>
       </div>
-      <div style="margin-bottom:8px;">
-        <label style="display:block; font-size:0.85rem; font-weight:bold;">Description:</label>
-        <textarea id="ap-desc" rows="2" style="width:100%; padding:6px; box-sizing:border-box;"></textarea>
-      </div>
-      <div style="margin-bottom:12px;">
-        <label style="display:block; font-size:0.85rem; font-weight:bold;">Photo (Optional):</label>
-        <input type="file" id="ap-photo" accept="image/*">
-      </div>
-      <button class="admin-btn" onclick="uploadAccessPoint()" style="width:100%;">Save Access Point to GitHub</button>
 
       <div id="status-msg" style="margin-top: 10px; font-weight: bold; font-size: 0.85rem; text-align: center;"></div>
     </div>
@@ -197,7 +224,6 @@
           min: eleMin
         };
 
-        // Pin badge
         try {
           const bounds = gpx.getBounds();
           L.tooltip({ permanent: true, direction: 'center', className: 'trail-label' })
@@ -232,13 +258,14 @@
       }).addTo(map);
     }
 
-    // Load Tracks
+    // --- REGISTERED TRAIL TRACKS ---
     addGpxTrack('gpx/Bear_Beach_JDF.gpx', 'Bear Beach Trail', '#e74c3c');
     addGpxTrack('gpx/Hoard_Creek_JDF.gpx', 'Hoard Creek Trail', '#2980b9');
     addGpxTrack('gpx/Lines_Creek_JDF.gpx', 'Lines Creek Trail', '#27ae60');
     addGpxTrack('gpx/Loss_Creek_JDF.gpx', 'Loss Creek Trail', '#8e44ad');
+    // --- END TRACKS ---
 
-    // Chart & Modal Functions
+    // UI Functions
     function triggerElevationChart(trackId) {
       const track = trackStore[trackId];
       if (!track || !track.data.length) return;
@@ -287,10 +314,81 @@
       if (show) document.getElementById('gh-token').value = localStorage.getItem('jdf_gh_token') || '';
     }
 
+    function switchTab(tab) {
+      document.getElementById('tab-gpx').style.display = tab === 'gpx' ? 'block' : 'none';
+      document.getElementById('tab-ap').style.display = tab === 'ap' ? 'block' : 'none';
+      document.getElementById('tab-gpx-btn').className = 'tab-btn ' + (tab === 'gpx' ? 'active' : '');
+      document.getElementById('tab-ap-btn').className = 'tab-btn ' + (tab === 'ap' ? 'active' : '');
+    }
+
     function saveToken() {
       localStorage.setItem('jdf_gh_token', document.getElementById('gh-token').value.trim());
     }
 
+    // --- GPX Direct Upload Function ---
+    async function uploadGpxTrack() {
+      const token = localStorage.getItem('jdf_gh_token');
+      const status = document.getElementById('status-msg');
+      if (!token) { status.style.color = 'red'; status.innerText = 'Please enter a GitHub Token!'; return; }
+
+      const fileInput = document.getElementById('gpx-file');
+      const trackName = document.getElementById('gpx-name').value.trim();
+      const trackColor = document.getElementById('gpx-color').value;
+
+      if (!fileInput.files[0] || !trackName) {
+        status.style.color = 'red'; status.innerText = 'Please select a file & enter a trail name!'; return; }
+
+      status.style.color = 'blue'; status.innerText = 'Uploading GPX to GitHub...';
+
+      try {
+        const file = fileInput.files[0];
+        const fileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const gpxPath = `gpx/${fileName}`;
+
+        // 1. Read GPX text content
+        const gpxText = await new Promise(resolve => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.readAsText(file);
+        });
+
+        const base64Gpx = btoa(unescape(encodeURIComponent(gpxText)));
+
+        // 2. Commit GPX file into /gpx/ folder
+        await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${gpxPath}`, {
+          method: 'PUT',
+          headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: `Upload GPX track: ${fileName}`, content: base64Gpx })
+        });
+
+        status.innerText = 'GPX saved. Updating index.html...';
+
+        // 3. Fetch index.html, register track call, and commit
+        const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/index.html`, {
+          headers: { 'Authorization': `token ${token}` }
+        });
+        const fileData = await res.json();
+        const currentHtml = decodeURIComponent(escape(atob(fileData.content)));
+
+        const newTrackCall = `addGpxTrack('gpx/${fileName}', '${trackName}', '${trackColor}');\n    // --- END TRACKS ---`;
+        const updatedHtml = currentHtml.replace('// --- END TRACKS ---', newTrackCall);
+        const base64Html = btoa(unescape(encodeURIComponent(updatedHtml)));
+
+        await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/index.html`, {
+          method: 'PUT',
+          headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: `Register track: ${trackName}`, content: base64Html, sha: fileData.sha })
+        });
+
+        status.style.color = 'green';
+        status.innerText = 'Track uploaded! Map will refresh in 1-2 mins.';
+      } catch (err) {
+        status.style.color = 'red';
+        status.innerText = 'Upload failed: ' + err.message;
+      }
+    }
+
+    // --- Access Point Upload Function ---
     async function uploadAccessPoint() {
       const token = localStorage.getItem('jdf_gh_token');
       const status = document.getElementById('status-msg');
