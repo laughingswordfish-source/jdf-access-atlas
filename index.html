@@ -153,7 +153,7 @@
       })
       .catch(err => console.log('data.json notice:', err));
 
-    // 4. Robust, Crash-Proof GPX Track Loader
+    // 4. Robust GPX Loader
     const segmentList = document.getElementById('segment-list');
     let elevationChartInstance = null;
     const trackStore = {};
@@ -173,9 +173,8 @@
           eleGain = Math.round(gpx.get_elevation_gain() || 0);
           eleMax = Math.round(gpx.get_elevation_max() || 0);
           eleMin = Math.round(gpx.get_elevation_min() || 0);
-        } catch(err) { console.warn('Elevation stats warning:', err); }
+        } catch(err) {}
 
-        // Safely extract elevation points with null-checking
         const labels = [];
         const eleValues = [];
         try {
@@ -186,7 +185,7 @@
               eleValues.push(Math.round(pt[1]));
             }
           });
-        } catch(err) { console.warn('Elevation array warning:', err); }
+        } catch(err) {}
 
         const trackId = 'track_' + Math.random().toString(36).substr(2, 9);
         trackStore[trackId] = {
@@ -198,7 +197,7 @@
           min: eleMin
         };
 
-        // 1. Pin text badge on map
+        // Pin badge
         try {
           const bounds = gpx.getBounds();
           L.tooltip({ permanent: true, direction: 'center', className: 'trail-label' })
@@ -207,7 +206,6 @@
             .addTo(map);
         } catch(err) {}
 
-        // 2. Clickable popup on trail line
         const hasChart = eleValues.length > 0;
         const chartBtnHtml = hasChart 
           ? `<br><br><button style="cursor:pointer; background:#1b2a4a; color:white; border:none; padding:5px 10px; border-radius:4px;" onclick="triggerElevationChart('${trackId}')">📈 View Elevation Chart</button>`
@@ -223,7 +221,6 @@
           </div>
         `);
 
-        // 3. Stats panel entry at bottom
         const item = document.createElement('li');
         item.style.marginBottom = "4px";
         const chartLinkHtml = hasChart 
