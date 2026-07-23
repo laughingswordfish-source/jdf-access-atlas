@@ -5,18 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Juan de Fuca Trail Access Atlas</title>
 
+  <!-- Leaflet CSS & JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+  <!-- Leaflet GPX Plugin -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/gpx.min.js"></script>
 
+  <!-- Chart.js for Elevation Graphs -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; height: 100vh; }
     header { padding: 0.8rem 1.2rem; background: #1b2a4a; color: white; display: flex; justify-content: space-between; align-items: center; }
     #map { flex: 1; }
-    #stats { padding: 12px 16px; background: #f8f9fa; border-top: 2px solid #ddd; max-height: 140px; overflow-y: auto; }
+    #stats { padding: 12px 16px; background: #f8f9fa; border-top: 2px solid #ddd; max-height: 160px; overflow-y: auto; }
     
     .popup-container { width: 220px; }
     .popup-title { font-size: 1.05rem; font-weight: bold; color: #1b2a4a; margin-bottom: 4px; }
@@ -35,13 +38,12 @@
       white-space: nowrap;
     }
 
-    /* Modal Styling for Elevation Profile & Admin */
     .admin-btn { background: #27ae60; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
     .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.65); z-index: 1000; justify-content: center; align-items: center; }
     .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 550px; max-height: 85vh; overflow-y: auto; }
     .close-btn { background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; float: right; }
 
-    .elevation-stats { display: flex; justify-content: space-between; background: #f0f4f8; padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 0.85rem; }
+    .elevation-stats { display: flex; justify-content: space-around; background: #f0f4f8; padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 0.85rem; }
   </style>
 </head>
 <body>
@@ -58,6 +60,7 @@
     <ul id="segment-list" style="margin: 0; padding-left: 20px;"></ul>
   </div>
 
+  <!-- Elevation Chart Modal -->
   <div id="elevation-modal" class="modal-overlay">
     <div class="modal-content">
       <button class="close-btn" onclick="toggleElevationModal(false)">✖ Close</button>
@@ -75,6 +78,7 @@
     </div>
   </div>
 
+  <!-- Admin Panel Overlay -->
   <div id="admin-modal" class="modal-overlay">
     <div class="modal-content">
       <button class="close-btn" onclick="toggleAdminModal(false)">✖ Close</button>
@@ -117,7 +121,7 @@
     // 1. Initialize Map
     const map = L.map('map').setView([48.48, -124.25], 11);
 
-    // 2. Basemap Layers (Standard OSM + OpenTopoMap)
+    // 2. Basemap Layers
     const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap contributors',
@@ -131,7 +135,7 @@
 
     L.control.layers({ "Standard Map": osm, "Terrain / Topo Map": topo }).addTo(map);
 
-    // 3. Load Access Points
+    // 3. Load Access Points from data.json
     fetch('data.json')
       .then(res => res.json())
       .then(points => {
@@ -149,9 +153,10 @@
       })
       .catch(err => console.log('data.json notice:', err));
 
-    // 4. GPX Loader with Elevation Profile Chart
+    // 4. Robust GPX Track Loader
     const segmentList = document.getElementById('segment-list');
     let elevationChartInstance = null;
+    const trackStore = {}; // Holds elevation data in memory
 
     function addGpxTrack(gpxPath, trackName, trackColor = '#e74c3c') {
       new L.GPX(gpxPath, {
@@ -166,23 +171,21 @@
         const eleMax = Math.round(gpx.get_elevation_max());
         const eleMin = Math.round(gpx.get_elevation_min());
 
-        // Extract elevation profile points along the track
-        const eleData = [];
-        const labels = [];
-        let accumulatedDist = 0;
+        // Safe extraction using built-in leaflet-gpx methods
+        const rawEleData = gpx.get_elevation_data(); // returns [[dist_km, ele_m], ...]
+        const labels = rawEleData.map(pt => pt[0].toFixed(1) + ' km');
+        const eleValues = rawEleData.map(pt => Math.round(pt[1]));
 
-        gpx.get_layers().forEach(layer => {
-          if (layer instanceof L.Polyline) {
-            const latlngs = layer.getLatLngs();
-            for (let i = 0; i < latlngs.length; i++) {
-              if (i > 0) accumulatedDist += latlngs[i].distanceTo(latlngs[i - 1]) / 1000;
-              if (latlngs[i].meta && latlngs[i].meta.ele !== undefined) {
-                labels.push(accumulatedDist.toFixed(1) + ' km');
-                eleData.push(Math.round(latlngs[i].meta.ele));
-              }
-            }
-          }
-        });
+        // Store data for modal lookup
+        const trackId = 'track_' + Math.random().toString(36).substr(2, 9);
+        trackStore[trackId] = {
+          name: trackName,
+          labels: labels,
+          data: eleValues,
+          gain: eleGain,
+          max: eleMax,
+          min: eleMin
+        };
 
         // Pin badge on map
         const bounds = gpx.getBounds();
@@ -192,25 +195,24 @@
           .addTo(map);
 
         // Clickable popup on trail line
-        const popupContent = document.createElement('div');
-        popupContent.style.fontFamily = 'sans-serif';
-        popupContent.innerHTML = `
-          <b>${trackName}</b><br>
-          <b>Distance:</b> ${distKm} km<br>
-          <b>Time:</b> ${durationStr || 'N/A'}<br>
-          <b>Ele Gain:</b> ${eleGain} m<br><br>
-          <button style="cursor:pointer; background:#1b2a4a; color:white; border:none; padding:4px 8px; border-radius:4px;" 
-            onclick="showElevationChart('${trackName}', ${JSON.stringify(labels)}, ${JSON.stringify(eleData)}, ${eleGain}, ${eleMax}, ${eleMin})">
-            📈 View Elevation Chart
-          </button>
+        const popupContent = `
+          <div style="font-family: sans-serif;">
+            <b style="color:#1b2a4a; font-size:1rem;">${trackName}</b><br>
+            <b>Distance:</b> ${distKm} km<br>
+            <b>Time:</b> ${durationStr || 'N/A'}<br>
+            <b>Elevation Gain:</b> ${eleGain} m<br><br>
+            <button style="cursor:pointer; background:#1b2a4a; color:white; border:none; padding:5px 10px; border-radius:4px;" 
+              onclick="triggerElevationChart('${trackId}')">
+              📈 View Elevation Chart
+            </button>
+          </div>
         `;
-
         gpx.bindPopup(popupContent);
 
         // Stats panel entry
         const item = document.createElement('li');
         item.style.marginBottom = "4px";
-        item.innerHTML = `<strong>${trackName}</strong>: ${distKm} km | Gain: ${eleGain}m | <a href="#" style="color:#2980b9; font-weight:bold;" onclick="showElevationChart('${trackName}', ${JSON.stringify(labels)}, ${JSON.stringify(eleData)}, ${eleGain}, ${eleMax}, ${eleMin}); return false;">View Terrain Chart</a>`;
+        item.innerHTML = `<strong>${trackName}</strong>: ${distKm} km | Gain: ${eleGain}m | <a href="#" style="color:#2980b9; font-weight:bold;" onclick="triggerElevationChart('${trackId}'); return false;">View Elevation Chart</a>`;
         segmentList.appendChild(item);
       }).addTo(map);
     }
@@ -221,12 +223,15 @@
     addGpxTrack('gpx/Lines_Creek_JDF.gpx', 'Lines Creek Trail', '#27ae60');
     addGpxTrack('gpx/Loss_Creek_JDF.gpx', 'Loss Creek Trail', '#8e44ad');
 
-    // --- Chart & Modal Logic ---
-    function showElevationChart(title, labels, data, gain, maxEle, minEle) {
-      document.getElementById('elevation-title').innerText = title + ' - Elevation Profile';
-      document.getElementById('ele-gain').innerText = gain;
-      document.getElementById('ele-max').innerText = maxEle;
-      document.getElementById('ele-min').innerText = minEle;
+    // Chart & Modal Functions
+    function triggerElevationChart(trackId) {
+      const track = trackStore[trackId];
+      if (!track) return;
+
+      document.getElementById('elevation-title').innerText = track.name + ' - Elevation Profile';
+      document.getElementById('ele-gain').innerText = track.gain;
+      document.getElementById('ele-max').innerText = track.max;
+      document.getElementById('ele-min').innerText = track.min;
 
       toggleElevationModal(true);
 
@@ -236,10 +241,10 @@
       elevationChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: labels,
+          labels: track.labels,
           datasets: [{
-            label: 'Elevation (meters)',
-            data: data,
+            label: 'Elevation (m)',
+            data: track.data,
             borderColor: '#27ae60',
             backgroundColor: 'rgba(39, 174, 96, 0.2)',
             fill: true,
@@ -252,7 +257,7 @@
           maintainAspectRatio: false,
           scales: {
             x: { title: { display: true, text: 'Distance along trail' } },
-            y: { title: { display: true, text: 'Elevation (m)' } }
+            y: { title: { display: true, text: 'Elevation (meters)' } }
           }
         }
       });
