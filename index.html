@@ -153,10 +153,10 @@
       })
       .catch(err => console.log('data.json notice:', err));
 
-    // 4. Robust GPX Track Loader
+    // 4. Robust, Crash-Proof GPX Track Loader
     const segmentList = document.getElementById('segment-list');
     let elevationChartInstance = null;
-    const trackStore = {}; // Holds elevation data in memory
+    const trackStore = {};
 
     function addGpxTrack(gpxPath, trackName, trackColor = '#e74c3c') {
       new L.GPX(gpxPath, {
@@ -167,16 +167,27 @@
         const gpx = e.target;
         const distKm = (gpx.get_distance() / 1000).toFixed(2);
         const durationStr = gpx.get_duration_string(gpx.get_total_time(), false);
-        const eleGain = Math.round(gpx.get_elevation_gain());
-        const eleMax = Math.round(gpx.get_elevation_max());
-        const eleMin = Math.round(gpx.get_elevation_min());
+        let eleGain = 0, eleMax = 0, eleMin = 0;
 
-        // Safe extraction using built-in leaflet-gpx methods
-        const rawEleData = gpx.get_elevation_data(); // returns [[dist_km, ele_m], ...]
-        const labels = rawEleData.map(pt => pt[0].toFixed(1) + ' km');
-        const eleValues = rawEleData.map(pt => Math.round(pt[1]));
+        try {
+          eleGain = Math.round(gpx.get_elevation_gain() || 0);
+          eleMax = Math.round(gpx.get_elevation_max() || 0);
+          eleMin = Math.round(gpx.get_elevation_min() || 0);
+        } catch(err) { console.warn('Elevation stats warning:', err); }
 
-        // Store data for modal lookup
+        // Safely extract elevation points with null-checking
+        const labels = [];
+        const eleValues = [];
+        try {
+          const rawEleData = gpx.get_elevation_data() || [];
+          rawEleData.forEach(pt => {
+            if (pt && typeof pt[0] === 'number' && typeof pt[1] === 'number') {
+              labels.push(pt[0].toFixed(1) + ' km');
+              eleValues.push(Math.round(pt[1]));
+            }
+          });
+        } catch(err) { console.warn('Elevation array warning:', err); }
+
         const trackId = 'track_' + Math.random().toString(36).substr(2, 9);
         trackStore[trackId] = {
           name: trackName,
@@ -187,33 +198,40 @@
           min: eleMin
         };
 
-        // Pin badge on map
-        const bounds = gpx.getBounds();
-        L.tooltip({ permanent: true, direction: 'center', className: 'trail-label' })
-          .setContent(trackName)
-          .setLatLng(bounds.getCenter())
-          .addTo(map);
+        // 1. Pin text badge on map
+        try {
+          const bounds = gpx.getBounds();
+          L.tooltip({ permanent: true, direction: 'center', className: 'trail-label' })
+            .setContent(trackName)
+            .setLatLng(bounds.getCenter())
+            .addTo(map);
+        } catch(err) {}
 
-        // Clickable popup on trail line
-        const popupContent = `
+        // 2. Clickable popup on trail line
+        const hasChart = eleValues.length > 0;
+        const chartBtnHtml = hasChart 
+          ? `<br><br><button style="cursor:pointer; background:#1b2a4a; color:white; border:none; padding:5px 10px; border-radius:4px;" onclick="triggerElevationChart('${trackId}')">📈 View Elevation Chart</button>`
+          : '';
+
+        gpx.bindPopup(`
           <div style="font-family: sans-serif;">
             <b style="color:#1b2a4a; font-size:1rem;">${trackName}</b><br>
             <b>Distance:</b> ${distKm} km<br>
             <b>Time:</b> ${durationStr || 'N/A'}<br>
-            <b>Elevation Gain:</b> ${eleGain} m<br><br>
-            <button style="cursor:pointer; background:#1b2a4a; color:white; border:none; padding:5px 10px; border-radius:4px;" 
-              onclick="triggerElevationChart('${trackId}')">
-              📈 View Elevation Chart
-            </button>
+            <b>Elevation Gain:</b> ${eleGain} m
+            ${chartBtnHtml}
           </div>
-        `;
-        gpx.bindPopup(popupContent);
+        `);
 
-        // Stats panel entry
+        // 3. Stats panel entry at bottom
         const item = document.createElement('li');
         item.style.marginBottom = "4px";
-        item.innerHTML = `<strong>${trackName}</strong>: ${distKm} km | Gain: ${eleGain}m | <a href="#" style="color:#2980b9; font-weight:bold;" onclick="triggerElevationChart('${trackId}'); return false;">View Elevation Chart</a>`;
+        const chartLinkHtml = hasChart 
+          ? ` | <a href="#" style="color:#2980b9; font-weight:bold;" onclick="triggerElevationChart('${trackId}'); return false;">View Elevation Chart</a>` 
+          : '';
+        item.innerHTML = `<strong>${trackName}</strong>: ${distKm} km | Gain: ${eleGain}m${chartLinkHtml}`;
         segmentList.appendChild(item);
+
       }).addTo(map);
     }
 
@@ -226,7 +244,7 @@
     // Chart & Modal Functions
     function triggerElevationChart(trackId) {
       const track = trackStore[trackId];
-      if (!track) return;
+      if (!track || !track.data.length) return;
 
       document.getElementById('elevation-title').innerText = track.name + ' - Elevation Profile';
       document.getElementById('ele-gain').innerText = track.gain;
