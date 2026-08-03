@@ -1,456 +1,135 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Juan de Fuca Trail Access Atlas</title>
-
-  <!-- Leaflet CSS & JS -->
+  
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <!-- Leaflet GPX Plugin -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/gpx.min.js"></script>
-
-  <!-- Chart.js for Elevation Graphs -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+  
   <style>
-    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; height: 100vh; }
-    header { padding: 0.8rem 1.2rem; background: #1b2a4a; color: white; display: flex; justify-content: space-between; align-items: center; }
-    #map { flex: 1; }
-    #stats { padding: 12px 16px; background: #f8f9fa; border-top: 2px solid #ddd; max-height: 160px; overflow-y: auto; }
-    
-    .popup-container { width: 220px; }
-    .popup-title { font-size: 1.05rem; font-weight: bold; color: #1b2a4a; margin-bottom: 4px; }
-    .popup-desc { font-size: 0.85rem; color: #444; margin-bottom: 8px; line-height: 1.3; }
-    .popup-img { width: 100%; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-
-    .trail-label {
-      background: rgba(27, 42, 74, 0.9);
-      border: 1px solid #1b2a4a;
-      color: #ffffff;
-      font-weight: bold;
-      font-size: 11px;
-      padding: 3px 7px;
-      border-radius: 4px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-      white-space: nowrap;
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
-
-    /* Modal & Admin Styling */
-    .admin-btn { background: #27ae60; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.65); z-index: 1000; justify-content: center; align-items: center; }
-    .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 550px; max-height: 85vh; overflow-y: auto; }
-    .close-btn { background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; float: right; }
-
-    .admin-tabs { display: flex; gap: 8px; margin: 15px 0 10px 0; border-bottom: 2px solid #ddd; }
-    .tab-btn { padding: 6px 12px; border: none; background: #eee; cursor: pointer; border-radius: 4px 4px 0 0; font-weight: bold; }
-    .tab-btn.active { background: #1b2a4a; color: white; }
-
-    .elevation-stats { display: flex; justify-content: space-around; background: #f0f4f8; padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 0.85rem; }
+    #map {
+      width: 100vw;
+      height: 100vh;
+    }
+    
+    /* Creek Ocean Label Styling */
+    .creek-label-wrapper {
+      background: transparent;
+      border: none;
+    }
+    .creek-ocean-label {
+      color: #004080;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.88);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #73b2d6;
+      white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+      display: inline-block;
+    }
   </style>
 </head>
 <body>
 
-  <header>
-    <h2 style="margin: 0; font-size: 1.25rem;">📍 Juan de Fuca Trail Atlas</h2>
-    <button class="admin-btn" onclick="toggleAdminModal(true)">🔐 Admin Portal</button>
-  </header>
+<div id="map"></div>
 
-  <div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <div id="stats">
-    <strong style="display:block; margin-bottom: 6px; color: #333;">📊 Loaded Trail Segments & Elevation Stats:</strong>
-    <ul id="segment-list" style="margin: 0; padding-left: 20px;"></ul>
-  </div>
+<script>
+  // 1. Initialize Map around JDF Trail coast
+  const map = L.map('map', {
+    referrerPolicy: 'strict-origin-when-cross-origin'
+  }).setView([48.445, -124.130], 12);
 
-  <!-- Elevation Chart Modal -->
-  <div id="elevation-modal" class="modal-overlay">
-    <div class="modal-content">
-      <button class="close-btn" onclick="toggleElevationModal(false)">✖ Close</button>
-      <h3 id="elevation-title" style="margin-top:0; color:#1b2a4a;">Trail Elevation Profile</h3>
-      
-      <div class="elevation-stats">
-        <div>⛰️ <b>Gain:</b> <span id="ele-gain">--</span> m</div>
-        <div>📈 <b>Max Ele:</b> <span id="ele-max">--</span> m</div>
-        <div>📉 <b>Min Ele:</b> <span id="ele-min">--</span> m</div>
-      </div>
+  // 2. Base Tile Layer (OpenStreetMap)
+  const baseMap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '© OpenStreetMap contributors',
+    referrerPolicy: 'strict-origin-when-cross-origin'
+  }).addTo(map);
 
-      <div style="width: 100%; height: 260px;">
-        <canvas id="elevationChart"></canvas>
-      </div>
-    </div>
-  </div>
+  // 3. Creek Mouths Data (16 Locations)
+  const creekData = [
+    { name: "Desolation Creek", lat: 48.4172, lon: -124.0311 },
+    { name: "First Creek", lat: 48.4239, lon: -124.0736 },
+    { name: "Maidenhair Creek", lat: 48.4328, lon: -124.0917 },
+    { name: "Pete Wolf Creek", lat: 48.4347, lon: -124.0969 },
+    { name: "McVicar Creek", lat: 48.4386, lon: -124.1150 },
+    { name: "Pat Philip Creek", lat: 48.4406, lon: -124.1231 },
+    { name: "Circo Creek", lat: 48.4411, lon: -124.1275 },
+    { name: "Bent Creek", lat: 48.4431, lon: -124.1369 },
+    { name: "Fatt Creek", lat: 48.4453, lon: -124.1453 },
+    { name: "Ivanhoe Creek", lat: 48.4467, lon: -124.1544 },
+    { name: "Clinch Creek", lat: 48.4525, lon: -124.1781 },
+    { name: "Ledingham Creek", lat: 48.4542, lon: -124.1853 },
+    { name: "Hoard Creek", lat: 48.4556, lon: -124.1936 },
+    { name: "Newmarch Creek", lat: 48.4578, lon: -124.2072 },
+    { name: "Lines Creek", lat: 48.4661, lon: -124.2339 },
+    { name: "Loss Creek", lat: 48.4803, lon: -124.2731 }
+  ];
 
-  <!-- Admin Panel Overlay -->
-  <div id="admin-modal" class="modal-overlay">
-    <div class="modal-content">
-      <button class="close-btn" onclick="toggleAdminModal(false)">✖ Close</button>
-      <h3 style="margin-top:0; color:#1b2a4a;">Admin Portal</h3>
+  // 4. Create Creek Layer
+  const creekLayer = L.layerGroup();
+  
+  // Seaward offsets to push label text into the ocean (South-West)
+  const LAT_OFFSET = -0.0012; // ~130m South
+  const LNG_OFFSET = -0.0015; // ~110m West
 
-      <div style="margin-bottom:12px;">
-        <label style="display:block; font-size:0.85rem; font-weight:bold; margin-bottom:4px;">GitHub Access Token:</label>
-        <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx" onchange="saveToken()" style="width:100%; padding:6px; box-sizing:border-box;">
-      </div>
+  creekData.forEach(creek => {
+    const mouthPos = L.latLng(creek.lat, creek.lon);
+    const oceanPos = L.latLng(creek.lat + LAT_OFFSET, creek.lon + LNG_OFFSET);
 
-      <div class="admin-tabs">
-        <button class="tab-btn active" id="tab-gpx-btn" onclick="switchTab('gpx')">➕ Upload GPX Track</button>
-        <button class="tab-btn" id="tab-ap-btn" onclick="switchTab('ap')">📍 Add Access Point</button>
-      </div>
-
-      <!-- Tab 1: Upload GPX Track -->
-      <div id="tab-gpx">
-        <div style="margin-bottom:8px;">
-          <label style="display:block; font-size:0.85rem; font-weight:bold;">Select GPX File:</label>
-          <input type="file" id="gpx-file" accept=".gpx">
-        </div>
-        <div style="margin-bottom:8px;">
-          <label style="display:block; font-size:0.85rem; font-weight:bold;">Trail Name on Map:</label>
-          <input type="text" id="gpx-name" placeholder="e.g. Sombrio to Botanical" style="width:100%; padding:6px; box-sizing:border-box;">
-        </div>
-        <div style="margin-bottom:12px;">
-          <label style="display:block; font-size:0.85rem; font-weight:bold;">Line Color:</label>
-          <input type="color" id="gpx-color" value="#e74c3c" style="width:100%; height:35px; cursor:pointer;">
-        </div>
-        <button class="admin-btn" onclick="uploadGpxTrack()" style="width:100%;">Upload Track to GitHub</button>
-      </div>
-
-      <!-- Tab 2: Add Access Point -->
-      <div id="tab-ap" style="display:none;">
-        <div style="margin-bottom:8px;">
-          <label style="display:block; font-size:0.85rem; font-weight:bold;">Point Title:</label>
-          <input type="text" id="ap-title" placeholder="e.g. Sombrio Trailhead" style="width:100%; padding:6px; box-sizing:border-box;">
-        </div>
-        <div style="margin-bottom:8px;">
-          <label style="display:block; font-size:0.85rem; font-weight:bold;">Latitude, Longitude:</label>
-          <input type="text" id="ap-coords" placeholder="48.494, -124.297" style="width:100%; padding:6px; box-sizing:border-box;">
-        </div>
-        <div style="margin-bottom:8px;">
-          <label style="display:block; font-size:0.85rem; font-weight:bold;">Description:</label>
-          <textarea id="ap-desc" rows="2" style="width:100%; padding:6px; box-sizing:border-box;"></textarea>
-        </div>
-        <div style="margin-bottom:12px;">
-          <label style="display:block; font-size:0.85rem; font-weight:bold;">Photo (Optional):</label>
-          <input type="file" id="ap-photo" accept="image/*">
-        </div>
-        <button class="admin-btn" onclick="uploadAccessPoint()" style="width:100%;">Save Access Point to GitHub</button>
-      </div>
-
-      <div id="status-msg" style="margin-top: 10px; font-weight: bold; font-size: 0.85rem; text-align: center;"></div>
-    </div>
-  </div>
-
-  <script>
-    const REPO_OWNER = 'laughingswordfish-source';
-    const REPO_NAME = 'jdf-access-atlas';
-
-    // 1. Initialize Map
-    const map = L.map('map').setView([48.48, -124.25], 11);
-
-    // 2. Basemap Layers
-    const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap contributors',
-      referrerPolicy: 'no-referrer-when-downgrade'
-    }).addTo(map);
-
-    const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-      maxZoom: 17,
-      attribution: '© OpenTopoMap contributors'
+    // Connector Line (from shore dot to ocean label)
+    const connectorLine = L.polyline([mouthPos, oceanPos], {
+      color: '#0077be',
+      weight: 1,
+      dashArray: '3, 3',
+      opacity: 0.7
     });
 
-    L.control.layers({ "Standard Map": osm, "Terrain / Topo Map": topo }).addTo(map);
+    // Shoreline Mouth Dot
+    const mouthDot = L.circleMarker(mouthPos, {
+      radius: 3.5,
+      color: '#005b96',
+      fillColor: '#33a1fd',
+      fillOpacity: 0.9,
+      weight: 1
+    }).bindPopup(`<b>${creek.name}</b><br>Mouth Location: ${creek.lat}, ${creek.lon}`);
 
-    // 3. Load Access Points from data.json
-    fetch('data.json')
-      .then(res => res.json())
-      .then(points => {
-        points.forEach(pt => {
-          const imgHtml = pt.photo ? `<img src="${pt.photo}" class="popup-img" alt="${pt.title}">` : '';
-          const popupHtml = `
-            <div class="popup-container">
-              <div class="popup-title">${pt.title}</div>
-              <div class="popup-desc">${pt.description}</div>
-              ${imgHtml}
-            </div>
-          `;
-          L.marker(pt.coords).addTo(map).bindPopup(popupHtml);
-        });
+    // Ocean Label Marker
+    const oceanMarker = L.marker(oceanPos, {
+      icon: L.divIcon({
+        className: 'creek-label-wrapper',
+        html: `<span class="creek-ocean-label">🌊 ${creek.name}</span>`,
+        iconSize: [110, 20],
+        iconAnchor: [55, 10]
       })
-      .catch(err => console.log('data.json notice:', err));
+    });
 
-    // 4. Robust GPX Loader
-    const segmentList = document.getElementById('segment-list');
-    let elevationChartInstance = null;
-    const trackStore = {};
+    connectorLine.addTo(creekLayer);
+    mouthDot.addTo(creekLayer);
+    oceanMarker.addTo(creekLayer);
+  });
 
-    function addGpxTrack(gpxPath, trackName, trackColor = '#e74c3c') {
-      new L.GPX(gpxPath, {
-        async: true,
-        polyline_options: { color: trackColor, weight: 5, opacity: 0.85 },
-        marker_options: { startIconUrl: null, endIconUrl: null, wptIconUrls: { '': null }, shadowUrl: null }
-      }).on('loaded', function(e) {
-        const gpx = e.target;
-        const distKm = (gpx.get_distance() / 1000).toFixed(2);
-        const durationStr = gpx.get_duration_string(gpx.get_total_time(), false);
-        let eleGain = 0, eleMax = 0, eleMin = 0;
+  // 5. Add Creek Layer to Map by Default (ON on load)
+  creekLayer.addTo(map);
 
-        try {
-          eleGain = Math.round(gpx.get_elevation_gain() || 0);
-          eleMax = Math.round(gpx.get_elevation_max() || 0);
-          eleMin = Math.round(gpx.get_elevation_min() || 0);
-        } catch(err) {}
+  // 6. Layer Control Toggle (Top Right)
+  const overlayMaps = {
+    "🌊 Creeks & Ocean Outfalls": creekLayer
+  };
 
-        const labels = [];
-        const eleValues = [];
-        try {
-          const rawEleData = gpx.get_elevation_data() || [];
-          rawEleData.forEach(pt => {
-            if (pt && typeof pt[0] === 'number' && typeof pt[1] === 'number') {
-              labels.push(pt[0].toFixed(1) + ' km');
-              eleValues.push(Math.round(pt[1]));
-            }
-          });
-        } catch(err) {}
+  L.control.layers(null, overlayMaps, { collapsed: false }).addTo(map);
+</script>
 
-        const trackId = 'track_' + Math.random().toString(36).substr(2, 9);
-        trackStore[trackId] = {
-          name: trackName,
-          labels: labels,
-          data: eleValues,
-          gain: eleGain,
-          max: eleMax,
-          min: eleMin
-        };
-
-        try {
-          const bounds = gpx.getBounds();
-          L.tooltip({ permanent: true, direction: 'center', className: 'trail-label' })
-            .setContent(trackName)
-            .setLatLng(bounds.getCenter())
-            .addTo(map);
-        } catch(err) {}
-
-        const hasChart = eleValues.length > 0;
-        const chartBtnHtml = hasChart 
-          ? `<br><br><button style="cursor:pointer; background:#1b2a4a; color:white; border:none; padding:5px 10px; border-radius:4px;" onclick="triggerElevationChart('${trackId}')">📈 View Elevation Chart</button>`
-          : '';
-
-        gpx.bindPopup(`
-          <div style="font-family: sans-serif;">
-            <b style="color:#1b2a4a; font-size:1rem;">${trackName}</b><br>
-            <b>Distance:</b> ${distKm} km<br>
-            <b>Time:</b> ${durationStr || 'N/A'}<br>
-            <b>Elevation Gain:</b> ${eleGain} m
-            ${chartBtnHtml}
-          </div>
-        `);
-
-        const item = document.createElement('li');
-        item.style.marginBottom = "4px";
-        const chartLinkHtml = hasChart 
-          ? ` | <a href="#" style="color:#2980b9; font-weight:bold;" onclick="triggerElevationChart('${trackId}'); return false;">View Elevation Chart</a>` 
-          : '';
-        item.innerHTML = `<strong>${trackName}</strong>: ${distKm} km | Gain: ${eleGain}m${chartLinkHtml}`;
-        segmentList.appendChild(item);
-
-      }).addTo(map);
-    }
-
-    // --- REGISTERED TRAIL TRACKS ---
-    addGpxTrack('gpx/Bear_Beach_JDF.gpx', 'Bear Beach Trail', '#e74c3c');
-    addGpxTrack('gpx/Hoard_Creek_JDF.gpx', 'Hoard Creek Trail', '#2980b9');
-    addGpxTrack('gpx/Lines_Creek_JDF.gpx', 'Lines Creek Trail', '#27ae60');
-    addGpxTrack('gpx/Loss_Creek_JDF.gpx', 'Loss Creek Trail', '#8e44ad');
-    addGpxTrack('gpx/Mystic.gpx', 'Mystic Beach', '#e74c3c');
-    addGpxTrack('gpx/Chin_Beach_Trail.gpx', 'Chin Beach Trail', '#e74c3c');
-    addGpxTrack('gpx/juan-de-fuca-escape-trail.gpx', 'Unverified #1', '#e74c3c');
-    addGpxTrack('gpx/unverified_2.gpx', 'Unverified #2', '#e74c3c');
-    addGpxTrack('gpx/unverified_3.gpx', 'Unverified #3', '#e74c3c');
-    addGpxTrack('gpx/unverified_4.gpx', 'Unverified #4', '#e74c3c');
-    // --- END TRACKS ---
-
-    // UI Functions
-    function triggerElevationChart(trackId) {
-      const track = trackStore[trackId];
-      if (!track || !track.data.length) return;
-
-      document.getElementById('elevation-title').innerText = track.name + ' - Elevation Profile';
-      document.getElementById('ele-gain').innerText = track.gain;
-      document.getElementById('ele-max').innerText = track.max;
-      document.getElementById('ele-min').innerText = track.min;
-
-      toggleElevationModal(true);
-
-      const ctx = document.getElementById('elevationChart').getContext('2d');
-      if (elevationChartInstance) elevationChartInstance.destroy();
-
-      elevationChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: track.labels,
-          datasets: [{
-            label: 'Elevation (m)',
-            data: track.data,
-            borderColor: '#27ae60',
-            backgroundColor: 'rgba(39, 174, 96, 0.2)',
-            fill: true,
-            tension: 0.3,
-            pointRadius: 0
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: { title: { display: true, text: 'Distance along trail' } },
-            y: { title: { display: true, text: 'Elevation (meters)' } }
-          }
-        }
-      });
-    }
-
-    function toggleElevationModal(show) {
-      document.getElementById('elevation-modal').style.display = show ? 'flex' : 'none';
-    }
-
-    function toggleAdminModal(show) {
-      document.getElementById('admin-modal').style.display = show ? 'flex' : 'none';
-      if (show) document.getElementById('gh-token').value = localStorage.getItem('jdf_gh_token') || '';
-    }
-
-    function switchTab(tab) {
-      document.getElementById('tab-gpx').style.display = tab === 'gpx' ? 'block' : 'none';
-      document.getElementById('tab-ap').style.display = tab === 'ap' ? 'block' : 'none';
-      document.getElementById('tab-gpx-btn').className = 'tab-btn ' + (tab === 'gpx' ? 'active' : '');
-      document.getElementById('tab-ap-btn').className = 'tab-btn ' + (tab === 'ap' ? 'active' : '');
-    }
-
-    function saveToken() {
-      localStorage.setItem('jdf_gh_token', document.getElementById('gh-token').value.trim());
-    }
-
-    // --- GPX Direct Upload Function ---
-    async function uploadGpxTrack() {
-      const token = localStorage.getItem('jdf_gh_token');
-      const status = document.getElementById('status-msg');
-      if (!token) { status.style.color = 'red'; status.innerText = 'Please enter a GitHub Token!'; return; }
-
-      const fileInput = document.getElementById('gpx-file');
-      const trackName = document.getElementById('gpx-name').value.trim();
-      const trackColor = document.getElementById('gpx-color').value;
-
-      if (!fileInput.files[0] || !trackName) {
-        status.style.color = 'red'; status.innerText = 'Please select a file & enter a trail name!'; return; }
-
-      status.style.color = 'blue'; status.innerText = 'Uploading GPX to GitHub...';
-
-      try {
-        const file = fileInput.files[0];
-        const fileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const gpxPath = `gpx/${fileName}`;
-
-        // 1. Read GPX text content
-        const gpxText = await new Promise(resolve => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.readAsText(file);
-        });
-
-        const base64Gpx = btoa(unescape(encodeURIComponent(gpxText)));
-
-        // 2. Commit GPX file into /gpx/ folder
-        await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${gpxPath}`, {
-          method: 'PUT',
-          headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: `Upload GPX track: ${fileName}`, content: base64Gpx })
-        });
-
-        status.innerText = 'GPX saved. Updating index.html...';
-
-        // 3. Fetch index.html, register track call, and commit
-        const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/index.html`, {
-          headers: { 'Authorization': `token ${token}` }
-        });
-        const fileData = await res.json();
-        const currentHtml = decodeURIComponent(escape(atob(fileData.content)));
-
-        const newTrackCall = `addGpxTrack('gpx/${fileName}', '${trackName}', '${trackColor}');\n    // --- END TRACKS ---`;
-        const updatedHtml = currentHtml.replace('// --- END TRACKS ---', newTrackCall);
-        const base64Html = btoa(unescape(encodeURIComponent(updatedHtml)));
-
-        await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/index.html`, {
-          method: 'PUT',
-          headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: `Register track: ${trackName}`, content: base64Html, sha: fileData.sha })
-        });
-
-        status.style.color = 'green';
-        status.innerText = 'Track uploaded! Map will refresh in 1-2 mins.';
-      } catch (err) {
-        status.style.color = 'red';
-        status.innerText = 'Upload failed: ' + err.message;
-      }
-    }
-
-    // --- Access Point Upload Function ---
-    async function uploadAccessPoint() {
-      const token = localStorage.getItem('jdf_gh_token');
-      const status = document.getElementById('status-msg');
-      if (!token) { status.style.color = 'red'; status.innerText = 'Please enter a GitHub Token!'; return; }
-
-      const title = document.getElementById('ap-title').value.trim();
-      const coordsStr = document.getElementById('ap-coords').value.trim();
-      const desc = document.getElementById('ap-desc').value.trim();
-      const photoFile = document.getElementById('ap-photo').files[0];
-
-      if (!title || !coordsStr) { status.style.color = 'red'; status.innerText = 'Title & Coords required!'; return; }
-
-      status.style.color = 'blue'; status.innerText = 'Uploading to GitHub...';
-
-      try {
-        const coords = coordsStr.split(',').map(n => parseFloat(n.trim()));
-        let photoPath = '';
-
-        if (photoFile) {
-          const reader = new FileReader();
-          const base64 = await new Promise(resolve => {
-            reader.onload = () => resolve(reader.result.split(',')[1]);
-            reader.readAsDataURL(photoFile);
-          });
-
-          photoPath = `photos/${Date.now()}_${photoFile.name}`;
-          await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${photoPath}`, {
-            method: 'PUT',
-            headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: `Upload photo: ${photoFile.name}`, content: base64 })
-          });
-        }
-
-        const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/data.json`, {
-          headers: { 'Authorization': `token ${token}` }
-        });
-        const fileData = await res.json();
-        const currentPoints = JSON.parse(atob(fileData.content));
-
-        currentPoints.push({ id: `pt_${Date.now()}`, title: title, coords: coords, description: desc, photo: photoPath });
-
-        const updatedContent = btoa(unescape(encodeURIComponent(JSON.stringify(currentPoints, null, 2))));
-
-        await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/data.json`, {
-          method: 'PUT',
-          headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: `Add access point: ${title}`, content: updatedContent, sha: fileData.sha })
-        });
-
-        status.style.color = 'green';
-        status.innerText = 'Saved! GitHub Pages will refresh in 1-2 mins.';
-      } catch (err) {
-        status.style.color = 'red';
-        status.innerText = 'Error saving: ' + err.message;
-      }
-    }
-  </script>
 </body>
 </html>
