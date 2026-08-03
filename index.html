@@ -36,6 +36,17 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.25);
       display: inline-block;
     }
+
+    /* Trail Polyline Label */
+    .trail-label {
+      background: rgba(0, 0, 0, 0.75);
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 6px;
+    }
   </style>
 </head>
 <body>
@@ -44,20 +55,71 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/gpx.min.js"></script>
+
 <script>
-  // 1. Initialize Map around JDF Trail coast
+  // 1. Initialize Map centered on JDF Coastline
   const map = L.map('map', {
     referrerPolicy: 'strict-origin-when-cross-origin'
   }).setView([48.445, -124.130], 12);
 
   // 2. Base Tile Layer (OpenStreetMap)
-  const baseMap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 18,
     attribution: '© OpenStreetMap contributors',
     referrerPolicy: 'strict-origin-when-cross-origin'
   }).addTo(map);
 
-  // 3. Creek Mouths Data (16 Locations)
+  // ==========================================
+  // LAYER 1: GPX TRAIL TRACKS
+  // ==========================================
+  const trailLayerGroup = L.layerGroup().addTo(map);
+
+  function loadGpxTrack(filePath, displayName, color) {
+    new L.GPX(filePath, {
+      async: true,
+      marker_options: {
+        startIconUrl: null,
+        endIconUrl: null,
+        wptIconUrls: { '': null } // Hide default generic markers
+      },
+      polyline_options: {
+        color: color || '#e63946',
+        opacity: 0.85,
+        weight: 5,
+        lineCap: 'round'
+      }
+    }).on('loaded', function(e) {
+      const gpx = e.target;
+      const distKm = (gpx.get_distance() / 1000).toFixed(2);
+      
+      // Popup info on trail click
+      gpx.bindPopup(`<b>${displayName}</b><br>Distance: ${distKm} km`);
+      
+      // Permanent text label centered on track
+      const bounds = gpx.getBounds();
+      const center = bounds.getCenter();
+      L.marker(center, {
+        icon: L.divIcon({
+          className: 'trail-label-wrapper',
+          html: `<span class="trail-label">${displayName} (${distKm} km)</span>`,
+          iconSize: [120, 20],
+          iconAnchor: [60, 10]
+        })
+      }).addTo(trailLayerGroup);
+
+    }).addTo(trailLayerGroup);
+  }
+
+  // Load your GPX Files from /gpx/ folder
+  loadGpxTrack('gpx/Bear_Beach_JDF.gpx', 'Bear Beach Section', '#9c27b0');
+  loadGpxTrack('gpx/Hoard_Creek_JDF.gpx', 'Hoard Creek Section', '#f4a261');
+  loadGpxTrack('gpx/Lines_Creek_JDF.gpx', 'Lines Creek Section', '#2a9d8f');
+  loadGpxTrack('gpx/Loss_Creek_JDF.gpx', 'Loss Creek Section', '#e63946');
+
+  // ==========================================
+  // LAYER 2: CREEK MOUTHS & OCEAN OUTFALLS
+  // ==========================================
   const creekData = [
     { name: "Desolation Creek", lat: 48.4172, lon: -124.0311 },
     { name: "First Creek", lat: 48.4239, lon: -124.0736 },
@@ -77,8 +139,7 @@
     { name: "Loss Creek", lat: 48.4803, lon: -124.2731 }
   ];
 
-  // 4. Create Creek Layer
-  const creekLayer = L.layerGroup();
+  const creekLayer = L.layerGroup().addTo(map);
   
   // Seaward offsets to push label text into the ocean (South-West)
   const LAT_OFFSET = -0.0012; // ~130m South
@@ -120,11 +181,11 @@
     oceanMarker.addTo(creekLayer);
   });
 
-  // 5. Add Creek Layer to Map by Default (ON on load)
-  creekLayer.addTo(map);
-
-  // 6. Layer Control Toggle (Top Right)
+  // ==========================================
+  // LAYER CONTROLS (Top Right)
+  // ==========================================
   const overlayMaps = {
+    "🥾 GPX Trails": trailLayerGroup,
     "🌊 Creeks & Ocean Outfalls": creekLayer
   };
 
