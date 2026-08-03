@@ -111,11 +111,17 @@
     }).addTo(trailLayerGroup);
   }
 
-  // Load your GPX Files from /gpx/ folder
+  // Load ALL GPX Files from /gpx/ folder (Based on your screenshot)
   loadGpxTrack('gpx/Bear_Beach_JDF.gpx', 'Bear Beach Section', '#9c27b0');
+  loadGpxTrack('gpx/Chin_Beach_Trail.gpx', 'Chin Beach Trail', '#43aa8b');
   loadGpxTrack('gpx/Hoard_Creek_JDF.gpx', 'Hoard Creek Section', '#f4a261');
   loadGpxTrack('gpx/Lines_Creek_JDF.gpx', 'Lines Creek Section', '#2a9d8f');
   loadGpxTrack('gpx/Loss_Creek_JDF.gpx', 'Loss Creek Section', '#e63946');
+  loadGpxTrack('gpx/Mystic.gpx', 'Mystic Beach', '#577590');
+  loadGpxTrack('gpx/juan-de-fuca-escape-trail.gpx', 'Escape Trail', '#f94144');
+  loadGpxTrack('gpx/unverified_2.gpx', 'Unverified Track 2', '#90be6d');
+  loadGpxTrack('gpx/unverified_3.gpx', 'Unverified Track 3', '#f3722c');
+  loadGpxTrack('gpx/unverified_4.gpx', 'Unverified Track 4', '#f8961e');
 
   // ==========================================
   // LAYER 2: CREEK MOUTHS & OCEAN OUTFALLS
@@ -125,72 +131,4 @@
     { name: "First Creek", lat: 48.4239, lon: -124.0736 },
     { name: "Maidenhair Creek", lat: 48.4328, lon: -124.0917 },
     { name: "Pete Wolf Creek", lat: 48.4347, lon: -124.0969 },
-    { name: "McVicar Creek", lat: 48.4386, lon: -124.1150 },
-    { name: "Pat Philip Creek", lat: 48.4406, lon: -124.1231 },
-    { name: "Circo Creek", lat: 48.4411, lon: -124.1275 },
-    { name: "Bent Creek", lat: 48.4431, lon: -124.1369 },
-    { name: "Fatt Creek", lat: 48.4453, lon: -124.1453 },
-    { name: "Ivanhoe Creek", lat: 48.4467, lon: -124.1544 },
-    { name: "Clinch Creek", lat: 48.4525, lon: -124.1781 },
-    { name: "Ledingham Creek", lat: 48.4542, lon: -124.1853 },
-    { name: "Hoard Creek", lat: 48.4556, lon: -124.1936 },
-    { name: "Newmarch Creek", lat: 48.4578, lon: -124.2072 },
-    { name: "Lines Creek", lat: 48.4661, lon: -124.2339 },
-    { name: "Loss Creek", lat: 48.4803, lon: -124.2731 }
-  ];
-
-  const creekLayer = L.layerGroup().addTo(map);
-  
-  // Seaward offsets to push label text into the ocean (South-West)
-  const LAT_OFFSET = -0.0012; // ~130m South
-  const LNG_OFFSET = -0.0015; // ~110m West
-
-  creekData.forEach(creek => {
-    const mouthPos = L.latLng(creek.lat, creek.lon);
-    const oceanPos = L.latLng(creek.lat + LAT_OFFSET, creek.lon + LNG_OFFSET);
-
-    // Connector Line (from shore dot to ocean label)
-    const connectorLine = L.polyline([mouthPos, oceanPos], {
-      color: '#0077be',
-      weight: 1,
-      dashArray: '3, 3',
-      opacity: 0.7
-    });
-
-    // Shoreline Mouth Dot
-    const mouthDot = L.circleMarker(mouthPos, {
-      radius: 3.5,
-      color: '#005b96',
-      fillColor: '#33a1fd',
-      fillOpacity: 0.9,
-      weight: 1
-    }).bindPopup(`<b>${creek.name}</b><br>Mouth Location: ${creek.lat}, ${creek.lon}`);
-
-    // Ocean Label Marker
-    const oceanMarker = L.marker(oceanPos, {
-      icon: L.divIcon({
-        className: 'creek-label-wrapper',
-        html: `<span class="creek-ocean-label">🌊 ${creek.name}</span>`,
-        iconSize: [110, 20],
-        iconAnchor: [55, 10]
-      })
-    });
-
-    connectorLine.addTo(creekLayer);
-    mouthDot.addTo(creekLayer);
-    oceanMarker.addTo(creekLayer);
-  });
-
-  // ==========================================
-  // LAYER CONTROLS (Top Right)
-  // ==========================================
-  const overlayMaps = {
-    "🥾 GPX Trails": trailLayerGroup,
-    "🌊 Creeks & Ocean Outfalls": creekLayer
-  };
-
-  L.control.layers(null, overlayMaps, { collapsed: false }).addTo(map);
-</script>
-
-</body>
-</html>
+    { name: "McVicar Creek", lat: 48.4386,
