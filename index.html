@@ -1,202 +1,152 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Juan de Fuca Trail Access Atlas</title>
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   
   <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    }
-    #map {
-      width: 100vw;
-      height: 100vh;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body, html { height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
     
-    /* Creek Ocean Label Styling */
-    .creek-label-wrapper {
-      background: transparent;
-      border: none;
+    #header {
+      height: 50px;
+      background: #1e293b;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      z-index: 1000;
+      position: relative;
     }
-    .creek-ocean-label {
-      color: #004080;
+    #header h1 { font-size: 1.1rem; font-weight: 600; }
+    
+    #map { height: calc(100vh - 50px); width: 100%; }
+    
+    /* Custom Badge Styles */
+    .creek-label {
+      background: rgba(14, 116, 144, 0.9);
+      color: #ffffff;
+      border: 1px solid #0891b2;
+      border-radius: 4px;
+      padding: 2px 6px;
       font-size: 11px;
       font-weight: 600;
-      background: rgba(255, 255, 255, 0.88);
-      padding: 2px 6px;
-      border-radius: 4px;
-      border: 1px solid #73b2d6;
       white-space: nowrap;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.25);
-      display: inline-block;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
 
-    /* Trail Polyline Label */
-    .trail-label {
-      background: rgba(0, 0, 0, 0.75);
-      color: #fff;
-      border: none;
-      border-radius: 3px;
+    .address-label {
+      background: rgba(109, 40, 217, 0.9);
+      color: #ffffff;
+      border: 1px solid #7c3aed;
+      border-radius: 4px;
+      padding: 2px 6px;
       font-size: 11px;
       font-weight: 600;
-      padding: 2px 6px;
+      white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
+    
+    .leaflet-popup-content-wrapper { border-radius: 8px; padding: 4px; }
+    .popup-title { font-weight: bold; font-size: 14px; margin-bottom: 4px; color: #0f172a; }
+    .popup-sub { font-size: 12px; color: #64748b; margin-bottom: 6px; }
   </style>
 </head>
 <body>
 
-<div id="map"></div>
+  <div id="header">
+    <h1>🌲 Juan de Fuca Trail & Access Atlas</h1>
+  </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <div id="map"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/gpx.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/gpx.min.js"></script>
 
-<script>
-  // 1. Initialize Map centered on JDF Coastline
-  const map = L.map('map', {
-    referrerPolicy: 'strict-origin-when-cross-origin'
-  }).setView([48.445, -124.130], 12);
+  <script>
+    // Initialize Map centered along JDF Coastline
+    const map = L.map('map').setView([48.4100, -124.0000], 11);
 
-  // 2. Base Tile Layer (OpenStreetMap)
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 18,
-    attribution: '© OpenStreetMap contributors',
-    referrerPolicy: 'strict-origin-when-cross-origin'
-  }).addTo(map);
+    // Basemap Layer
+    const topoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      maxZoom: 17,
+      attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap',
+      referrerPolicy: 'no-referrer-when-downgrade'
+    }).addTo(map);
 
-  // ==========================================
-  // LAYER 1: GPX TRAIL TRACKS
-  // ==========================================
-  const trailLayerGroup = L.layerGroup().addTo(map);
-
-  function loadGpxTrack(filePath, displayName, color) {
-    new L.GPX(filePath, {
-      async: true,
-      marker_options: {
-        startIconUrl: null,
-        endIconUrl: null,
-        wptIconUrls: { '': null } // Hide default generic markers
-      },
-      polyline_options: {
-        color: color || '#e63946',
-        opacity: 0.85,
-        weight: 5,
-        lineCap: 'round'
-      }
-    }).on('loaded', function(e) {
-      const gpx = e.target;
-      const distKm = (gpx.get_distance() / 1000).toFixed(2);
-      
-      // Popup info on trail click
-      gpx.bindPopup(`<b>${displayName}</b><br>Distance: ${distKm} km`);
-      
-      // Permanent text label centered on track
-      const bounds = gpx.getBounds();
-      const center = bounds.getCenter();
-      L.marker(center, {
-        icon: L.divIcon({
-          className: 'trail-label-wrapper',
-          html: `<span class="trail-label">${displayName} (${distKm} km)</span>`,
-          iconSize: [120, 20],
-          iconAnchor: [60, 10]
-        })
-      }).addTo(trailLayerGroup);
-
-    }).addTo(trailLayerGroup);
-  }
-
-  // Load ALL GPX Files from /gpx/ folder
-  loadGpxTrack('gpx/Bear_Beach_JDF.gpx', 'Bear Beach Section', '#9c27b0');
-  loadGpxTrack('gpx/Chin_Beach_Trail.gpx', 'Chin Beach Trail', '#43aa8b');
-  loadGpxTrack('gpx/Hoard_Creek_JDF.gpx', 'Hoard Creek Section', '#f4a261');
-  loadGpxTrack('gpx/Lines_Creek_JDF.gpx', 'Lines Creek Section', '#2a9d8f');
-  loadGpxTrack('gpx/Loss_Creek_JDF.gpx', 'Loss Creek Section', '#e63946');
-  loadGpxTrack('gpx/Mystic.gpx', 'Mystic Beach', '#577590');
-  loadGpxTrack('gpx/juan-de-fuca-escape-trail.gpx', 'Escape Trail', '#f94144');
-  loadGpxTrack('gpx/unverified_2.gpx', 'Unverified Track 2', '#90be6d');
-  loadGpxTrack('gpx/unverified_3.gpx', 'Unverified Track 3', '#f3722c');
-  loadGpxTrack('gpx/unverified_4.gpx', 'Unverified Track 4', '#f8961e');
-
-  // ==========================================
-  // LAYER 2: CREEK MOUTHS & OCEAN OUTFALLS
-  // ==========================================
-  const creekData = [
-    { name: "Desolation Creek", lat: 48.4172, lon: -124.0311 },
-    { name: "First Creek", lat: 48.4239, lon: -124.0736 },
-    { name: "Maidenhair Creek", lat: 48.4328, lon: -124.0917 },
-    { name: "Pete Wolf Creek", lat: 48.4347, lon: -124.0969 },
-    { name: "McVicar Creek", lat: 48.4386, lon: -124.1150 },
-    { name: "Pat Philip Creek", lat: 48.4406, lon: -124.1231 },
-    { name: "Circo Creek", lat: 48.4411, lon: -124.1275 },
-    { name: "Bent Creek", lat: 48.4431, lon: -124.1369 },
-    { name: "Fatt Creek", lat: 48.4453, lon: -124.1453 },
-    { name: "Ivanhoe Creek", lat: 48.4467, lon: -124.1544 },
-    { name: "Clinch Creek", lat: 48.4525, lon: -124.1781 },
-    { name: "Ledingham Creek", lat: 48.4542, lon: -124.1853 },
-    { name: "Hoard Creek", lat: 48.4556, lon: -124.1936 },
-    { name: "Newmarch Creek", lat: 48.4578, lon: -124.2072 },
-    { name: "Lines Creek", lat: 48.4661, lon: -124.2339 },
-    { name: "Loss Creek", lat: 48.4803, lon: -124.2731 }
-  ];
-
-  const creekLayer = L.layerGroup().addTo(map);
-  
-  // Seaward offsets to push label text into the ocean (South-West)
-  const LAT_OFFSET = -0.0012; // ~130m South
-  const LNG_OFFSET = -0.0015; // ~110m West
-
-  creekData.forEach(creek => {
-    const mouthPos = L.latLng(creek.lat, creek.lon);
-    const oceanPos = L.latLng(creek.lat + LAT_OFFSET, creek.lon + LNG_OFFSET);
-
-    // Connector Line (from shore dot to ocean label)
-    const connectorLine = L.polyline([mouthPos, oceanPos], {
-      color: '#0077be',
-      weight: 1,
-      dashArray: '3, 3',
-      opacity: 0.7
+    const osmMap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors',
+      referrerPolicy: 'no-referrer-when-downgrade'
     });
 
-    // Shoreline Mouth Dot
-    const mouthDot = L.circleMarker(mouthPos, {
-      radius: 3.5,
-      color: '#005b96',
-      fillColor: '#33a1fd',
-      fillOpacity: 0.9,
-      weight: 1
-    }).bindPopup(`<b>${creek.name}</b><br>Mouth Location: ${creek.lat}, ${creek.lon}`);
+    // Layer Groups
+    const gpxLayerGroup = L.layerGroup().addTo(map);
+    const creekLayerGroup = L.layerGroup().addTo(map);
+    const addressLayerGroup = L.layerGroup().addTo(map);
 
-    // Ocean Label Marker
-    const oceanMarker = L.marker(oceanPos, {
-      icon: L.divIcon({
-        className: 'creek-label-wrapper',
-        html: `<span class="creek-ocean-label">🌊 ${creek.name}</span>`,
-        iconSize: [110, 20],
-        iconAnchor: [55, 10]
-      })
-    });
+    // -------------------------------------------------------------
+    // 1. GPX TRACKS
+    // -------------------------------------------------------------
+    function loadGpxTrack(filePath, customName, color) {
+      new L.GPX(filePath, {
+        async: true,
+        marker_options: {
+          startIconUrl: null,
+          endIconUrl: null,
+          shadowUrl: null,
+          wptIconUrls: { '': null }
+        },
+        polyline_options: {
+          color: color,
+          opacity: 0.85,
+          weight: 4,
+          lineCap: 'round'
+        }
+      }).on('loaded', function(e) {
+        const gpx = e.target;
+        const distKm = (gpx.get_distance() / 1000).toFixed(2);
+        
+        gpx.bindPopup(`
+          <div class="popup-title">${customName}</div>
+          <div class="popup-sub">Distance: ${distKm} km</div>
+        `);
+      }).addTo(gpxLayerGroup);
+    }
 
-    connectorLine.addTo(creekLayer);
-    mouthDot.addTo(creekLayer);
-    oceanMarker.addTo(creekLayer);
-  });
+    // Existing & Renamed GPX Files
+    loadGpxTrack('gpx/Bear_Beach_JDF.gpx', 'Bear Beach Section', '#ef4444');
+    loadGpxTrack('gpx/Hoard_Creek_JDF.gpx', 'Hoard Creek Section', '#f97316');
+    loadGpxTrack('gpx/Lines_Creek_JDF.gpx', 'Lines Creek Section', '#eab308');
+    loadGpxTrack('gpx/Loss_Creek_JDF.gpx', 'Loss Creek Section', '#10b981');
+    loadGpxTrack('gpx/Unverified_Track_4.gpx', 'McVicar Creek Access Point', '#a855f7'); // Renamed Track
 
-  // ==========================================
-  // LAYER CONTROLS (Top Right)
-  // ==========================================
-  const overlayMaps = {
-    "🥾 GPX Trails": trailLayerGroup,
-    "🌊 Creeks & Ocean Outfalls": creekLayer
-  };
-
-  L.control.layers(null, overlayMaps, { collapsed: false }).addTo(map);
-</script>
-
-</body>
-</html>
+    // -------------------------------------------------------------
+    // 2. CREEKS & OCEAN OUTFALLS LAYER
+    // -------------------------------------------------------------
+    const creeks = [
+      { name: "Muir Creek", lat: 48.3806, lon: -123.8653 },
+      { name: "Kirby Creek", lat: 48.3817, lon: -123.8967 },
+      { name: "Fisherman Creek", lat: 48.3944, lon: -123.9697 },
+      { name: "Frenchome Creek", lat: 48.3925, lon: -123.9456 },
+      { name: "Begg Creek", lat: 48.3953, lon: -123.9511 },
+      { name: "Swallow Creek", lat: 48.3956, lon: -123.9575 },
+      { name: "Point No Point (Glacier Point)", lat: 48.3956, lon: -123.9861 },
+      { name: "Jacob Creek", lat: 48.4011, lon: -123.9875 },
+      { name: "Vye Creek", lat: 48.4083, lon: -123.9989 },
+      { name: "Rockbottom Creek", lat: 48.4133, lon: -124.0128 },
+      { name: "Sandcut Creek", lat: 48.4122, lon: -124.0136 },
+      { name: "Desolation Creek", lat: 48.4172, lon: -124.0311 },
+      { name: "First Creek", lat: 48.4239, lon: -124.0736 },
+      { name: "Maidenhair Creek", lat: 48.4328, lon: -124.0917 },
+      { name: "Pete Wolf Creek", lat: 48.4347, lon: -124.0969 },
+      { name: "McVicar Creek", lat: 48.4386, lon: -124.1150 },
+      { name: "Pat Philip Creek", lat: 48.4406, lon: -124.1231 },
+      { name: "Circo Creek", lat: 48.4411, lon: -124.1275 },
+      { name: "Bent Creek", lat: 48.4431, lon: -124.1369 },
+      { name: "Fatt Creek", lat: 48.445
