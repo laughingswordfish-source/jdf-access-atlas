@@ -8,8 +8,14 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body, html { height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    /* Hardened CSS to prevent 0px height collapse */
+    html, body { 
+      margin: 0; 
+      padding: 0; 
+      height: 100%; 
+      width: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+    }
     
     #header {
       height: 50px;
@@ -23,9 +29,19 @@
       z-index: 1000;
       position: relative;
     }
-    #header h1 { font-size: 1.1rem; font-weight: 600; }
     
-    #map { height: calc(100vh - 50px); width: 100%; }
+    #header h1 { 
+      font-size: 1.1rem; 
+      font-weight: 600; 
+      margin: 0;
+    }
+    
+    #map { 
+      height: calc(100vh - 50px);
+      height: calc(100dvh - 50px);
+      width: 100%; 
+      display: block;
+    }
     
     /* Custom Badge Styles */
     .creek-label {
@@ -69,84 +85,69 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/gpx.min.js"></script>
 
   <script>
-    // Initialize Map centered along JDF Coastline
-    const map = L.map('map').setView([48.4100, -124.0000], 11);
+    // Initialize Map explicitly waiting for DOM to prevent blank loads
+    document.addEventListener("DOMContentLoaded", function() {
+      
+      const map = L.map('map').setView([48.4100, -124.0000], 11);
 
-    // Basemap Layer
-    const topoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-      maxZoom: 17,
-      attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap',
-      referrerPolicy: 'no-referrer-when-downgrade'
-    }).addTo(map);
+      // Basemap Layer
+      const topoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        maxZoom: 17,
+        attribution: 'Map data: &copy; OSM contributors | Map style: &copy; OpenTopoMap',
+        referrerPolicy: 'no-referrer-when-downgrade'
+      }).addTo(map);
 
-    const osmMap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors',
-      referrerPolicy: 'no-referrer-when-downgrade'
-    });
+      const osmMap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors',
+        referrerPolicy: 'no-referrer-when-downgrade'
+      });
 
-    // Layer Groups
-    const gpxLayerGroup = L.layerGroup().addTo(map);
-    const creekLayerGroup = L.layerGroup().addTo(map);
-    const addressLayerGroup = L.layerGroup().addTo(map);
+      // Layer Groups
+      const gpxLayerGroup = L.layerGroup().addTo(map);
+      const creekLayerGroup = L.layerGroup().addTo(map);
+      const addressLayerGroup = L.layerGroup().addTo(map);
 
-    // -------------------------------------------------------------
-    // 1. GPX TRACKS
-    // -------------------------------------------------------------
-    function loadGpxTrack(filePath, customName, color) {
-      new L.GPX(filePath, {
-        async: true,
-        marker_options: {
-          startIconUrl: null,
-          endIconUrl: null,
-          shadowUrl: null,
-          wptIconUrls: { '': null }
-        },
-        polyline_options: {
-          color: color,
-          opacity: 0.85,
-          weight: 4,
-          lineCap: 'round'
-        }
-      }).on('loaded', function(e) {
-        const gpx = e.target;
-        const distKm = (gpx.get_distance() / 1000).toFixed(2);
-        
-        gpx.bindPopup(`
-          <div class="popup-title">${customName}</div>
-          <div class="popup-sub">Distance: ${distKm} km</div>
-        `);
-      }).addTo(gpxLayerGroup);
-    }
+      // -------------------------------------------------------------
+      // 1. GPX TRACKS
+      // -------------------------------------------------------------
+      function loadGpxTrack(filePath, customName, color) {
+        new L.GPX(filePath, {
+          async: true,
+          marker_options: {
+            startIconUrl: null,
+            endIconUrl: null,
+            shadowUrl: null,
+            wptIconUrls: { '': null } // Forces default "Marke" waypoints to hide
+          },
+          polyline_options: {
+            color: color,
+            opacity: 0.85,
+            weight: 4,
+            lineCap: 'round'
+          }
+        }).on('loaded', function(e) {
+          const gpx = e.target;
+          const distKm = (gpx.get_distance() / 1000).toFixed(2);
+          
+          gpx.bindPopup(`
+            <div class="popup-title">${customName}</div>
+            <div class="popup-sub">Distance: ${distKm} km</div>
+          `);
+        }).addTo(gpxLayerGroup);
+      }
 
-    // Existing & Renamed GPX Files
-    loadGpxTrack('gpx/Bear_Beach_JDF.gpx', 'Bear Beach Section', '#ef4444');
-    loadGpxTrack('gpx/Hoard_Creek_JDF.gpx', 'Hoard Creek Section', '#f97316');
-    loadGpxTrack('gpx/Lines_Creek_JDF.gpx', 'Lines Creek Section', '#eab308');
-    loadGpxTrack('gpx/Loss_Creek_JDF.gpx', 'Loss Creek Section', '#10b981');
-    loadGpxTrack('gpx/Unverified_Track_4.gpx', 'McVicar Creek Access Point', '#a855f7'); // Renamed Track
+      // Load GPX Files
+      loadGpxTrack('gpx/Bear_Beach_JDF.gpx', 'Bear Beach Section', '#ef4444');
+      loadGpxTrack('gpx/Hoard_Creek_JDF.gpx', 'Hoard Creek Section', '#f97316');
+      loadGpxTrack('gpx/Lines_Creek_JDF.gpx', 'Lines Creek Section', '#eab308');
+      loadGpxTrack('gpx/Loss_Creek_JDF.gpx', 'Loss Creek Section', '#10b981');
+      loadGpxTrack('gpx/Unverified_Track_4.gpx', 'McVicar Creek Access Point', '#a855f7'); 
 
-    // -------------------------------------------------------------
-    // 2. CREEKS & OCEAN OUTFALLS LAYER
-    // -------------------------------------------------------------
-    const creeks = [
-      { name: "Muir Creek", lat: 48.3806, lon: -123.8653 },
-      { name: "Kirby Creek", lat: 48.3817, lon: -123.8967 },
-      { name: "Fisherman Creek", lat: 48.3944, lon: -123.9697 },
-      { name: "Frenchome Creek", lat: 48.3925, lon: -123.9456 },
-      { name: "Begg Creek", lat: 48.3953, lon: -123.9511 },
-      { name: "Swallow Creek", lat: 48.3956, lon: -123.9575 },
-      { name: "Point No Point (Glacier Point)", lat: 48.3956, lon: -123.9861 },
-      { name: "Jacob Creek", lat: 48.4011, lon: -123.9875 },
-      { name: "Vye Creek", lat: 48.4083, lon: -123.9989 },
-      { name: "Rockbottom Creek", lat: 48.4133, lon: -124.0128 },
-      { name: "Sandcut Creek", lat: 48.4122, lon: -124.0136 },
-      { name: "Desolation Creek", lat: 48.4172, lon: -124.0311 },
-      { name: "First Creek", lat: 48.4239, lon: -124.0736 },
-      { name: "Maidenhair Creek", lat: 48.4328, lon: -124.0917 },
-      { name: "Pete Wolf Creek", lat: 48.4347, lon: -124.0969 },
-      { name: "McVicar Creek", lat: 48.4386, lon: -124.1150 },
-      { name: "Pat Philip Creek", lat: 48.4406, lon: -124.1231 },
-      { name: "Circo Creek", lat: 48.4411, lon: -124.1275 },
-      { name: "Bent Creek", lat: 48.4431, lon: -124.1369 },
-      { name: "Fatt Creek", lat: 48.445
+      // -------------------------------------------------------------
+      // 2. FULL CREEKS & OCEAN OUTFALLS LAYER
+      // -------------------------------------------------------------
+      const creeks = [
+        { name: "Muir Creek", lat: 48.3806, lon: -123.8653 },
+        { name: "Kirby Creek", lat: 48.3817, lon: -123.8967 },
+        { name: "Fisherman Creek", lat: 48.3944, lon: -1
