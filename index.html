@@ -34,38 +34,43 @@
       background-color: #e5e7eb;
     }
     
-    /* Creek Labels */
-    .map-label-creek {
-      background: rgba(14, 116, 144, 0.95);
-      color: #ffffff;
-      border: 1px solid #38bdf8;
-      border-radius: 4px;
-      padding: 3px 8px;
-      font-size: 12px;
-      font-weight: 600;
-      white-space: nowrap;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    /* Clean Tooltip Styling for Creeks */
+    .creek-tooltip {
+      background: rgba(14, 116, 144, 0.95) !important;
+      color: #ffffff !important;
+      border: 1px solid #38bdf8 !important;
+      border-radius: 4px !important;
+      padding: 3px 8px !important;
+      font-size: 12px !important;
+      font-weight: 600 !important;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
     }
 
-    /* Professional, Wide Horizontal Address Badges (High Legibility) */
-    .map-label-address {
-      background: #0f172a;
-      color: #ffffff;
-      border: 1px solid #334155;
-      border-radius: 6px;
-      padding: 6px 10px;
-      font-size: 13px;
-      font-weight: 700;
-      white-space: nowrap;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.4);
-      line-height: 1.4;
+    /* Professional High-Contrast Address Tooltips (Fully Expanded Dark Cards) */
+    .address-tooltip {
+      background: #0f172a !important;
+      color: #ffffff !important;
+      border: 1px solid #334155 !important;
+      border-radius: 6px !important;
+      padding: 8px 12px !important;
+      font-size: 13px !important;
+      font-weight: 700 !important;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.4) !important;
+      line-height: 1.4 !important;
     }
 
-    .map-label-address span {
+    .address-tooltip span {
       display: block;
       font-size: 11px;
       font-weight: 400;
-      color: #cbd5e1; /* Pale gray subtext for street address */
+      color: #cbd5e1 !important; /* Pale gray subtext for street address */
+      margin-top: 2px;
+    }
+
+    /* Hide default tooltip arrows for a cleaner floating badge look */
+    .leaflet-tooltip.creek-tooltip::before,
+    .leaflet-tooltip.address-tooltip::before {
+      display: none;
     }
     
     .leaflet-popup-content-wrapper { border-radius: 8px; padding: 4px; }
@@ -107,7 +112,7 @@
     const addressLayerGroup = L.layerGroup().addTo(map);
 
     // -------------------------------------------------------------
-    // 1. GPX TRACKS (All 5 Restored)
+    // 1. GPX TRACKS (All 5 Fully Restored)
     // -------------------------------------------------------------
     function loadGpxTrack(filePath, customName, color) {
       new L.GPX(filePath, {
@@ -164,20 +169,20 @@
     ];
 
     creeks.forEach(c => {
-      L.circleMarker([c.lat, c.lon], {
+      const marker = L.circleMarker([c.lat, c.lon], {
         radius: 4, color: '#0369a1', fillColor: '#38bdf8', fillOpacity: 0.9, weight: 1.5
-      }).bindPopup(`<div class="popup-title">🌊 ${c.name}</div><div class="popup-sub">Ocean Outfall / Creek Mouth</div>`).addTo(creekLayerGroup);
+      }).bindPopup(`<div class="popup-title">🌊 ${c.name}</div><div class="popup-sub">Ocean Outfall / Creek Mouth</div>`);
 
-      const labelIcon = L.divIcon({
-        className: '',
-        html: `<div class="map-label-creek">${c.name}</div>`,
-        iconAnchor: [-10, 10]
-      });
-      L.marker([c.lat, c.lon], { icon: labelIcon }).addTo(creekLayerGroup);
+      marker.bindTooltip(c.name, {
+        permanent: true,
+        direction: 'right',
+        offset: [10, 0],
+        className: 'creek-tooltip'
+      }).addTo(creekLayerGroup);
     });
 
     // -------------------------------------------------------------
-    // 3. CRD CIVIC ADDRESSES LAYER (Clean Wide Horizontal Layout)
+    // 3. CRD CIVIC ADDRESSES LAYER (Clean, Fully Expanded Tooltips)
     // -------------------------------------------------------------
     const addresses = [
       { name: "Last House on right before Muir Creek", address: "9143 West Coast Rd", lat: 48.38006, lon: -123.86999 },
@@ -190,18 +195,16 @@
     ];
 
     addresses.forEach(a => {
-      // Clean marker dot on the road location
-      L.circleMarker([a.lat, a.lon], {
+      const marker = L.circleMarker([a.lat, a.lon], {
         radius: 5, color: '#0f172a', fillColor: '#ffffff', fillOpacity: 1, weight: 2
-      }).bindPopup(`<div class="popup-title">📍 ${a.name}</div><div class="popup-sub">${a.address}</div>`).addTo(addressLayerGroup);
+      }).bindPopup(`<div class="popup-title">📍 ${a.name}</div><div class="popup-sub">${a.address}</div>`);
 
-      // Wide horizontal badge displaying Name + Address subtext clearly
-      const labelIcon = L.divIcon({
-        className: '',
-        html: `<div class="map-label-address">${a.name}<span>${a.address}</span></div>`,
-        iconAnchor: [-12, 18]
-      });
-      L.marker([a.lat, a.lon], { icon: labelIcon }).addTo(addressLayerGroup);
+      marker.bindTooltip(`<b>${a.name}</b><span>${a.address}</span>`, {
+        permanent: true,
+        direction: 'right',
+        offset: [12, 0],
+        className: 'address-tooltip'
+      }).addTo(addressLayerGroup);
     });
 
     // -------------------------------------------------------------
