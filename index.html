@@ -47,7 +47,7 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
     }
 
-    /* Professional High-Contrast Address Tooltips (Fully Expanded Dark Cards) */
+    /* Address Tooltips: Address Large & Bold on Top, Name/Desc as Subtext */
     .address-tooltip {
       background: #0f172a !important;
       color: #ffffff !important;
@@ -64,13 +64,26 @@
       display: block;
       font-size: 11px;
       font-weight: 400;
-      color: #cbd5e1 !important; /* Pale gray subtext for street address */
+      color: #cbd5e1 !important; /* Smaller subtext for description/name */
       margin-top: 2px;
     }
 
-    /* Hide default tooltip arrows for a cleaner floating badge look */
+    /* Permanent labels directly on GPX tracks */
+    .gpx-tooltip {
+      background: rgba(15, 23, 42, 0.85) !important;
+      color: #ffffff !important;
+      border: 1px solid #475569 !important;
+      border-radius: 4px !important;
+      padding: 2px 6px !important;
+      font-size: 11px !important;
+      font-weight: 600 !important;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
+    }
+
+    /* Hide default tooltip arrows */
     .leaflet-tooltip.creek-tooltip::before,
-    .leaflet-tooltip.address-tooltip::before {
+    .leaflet-tooltip.address-tooltip::before,
+    .leaflet-tooltip.gpx-tooltip::before {
       display: none;
     }
     
@@ -114,7 +127,7 @@
     const addressLayerGroup = L.layerGroup().addTo(map);
 
     // -------------------------------------------------------------
-    // 1. GPX TRACKS (All 10 Verified Repository Files)
+    // 1. GPX TRACKS (All 10 Tracks with Visible Permanent Labels)
     // -------------------------------------------------------------
     function loadGpxTrack(filePath, customName, color) {
       new L.GPX(filePath, {
@@ -124,10 +137,18 @@
       }).on('loaded', function(e) {
         const gpx = e.target;
         const distKm = (gpx.get_distance() / 1000).toFixed(2);
+        
         gpx.bindPopup(`
           <div class="popup-title">${customName}</div>
           <div class="popup-sub">Distance: ${distKm} km</div>
         `);
+
+        // Visible track name right on the map
+        gpx.bindTooltip(customName, {
+          permanent: true,
+          direction: 'center',
+          className: 'gpx-tooltip'
+        });
       }).addTo(gpxLayerGroup);
     }
 
@@ -140,10 +161,10 @@
     loadGpxTrack('gpx/juan-de-fuca-escape-trail.gpx', 'Juan de Fuca Escape Trail', '#8b5cf6');
     loadGpxTrack('gpx/unverified_2.gpx', 'Unverified Track 2', '#ec4899');
     loadGpxTrack('gpx/unverified_3.gpx', 'Unverified Track 3', '#64748b');
-    loadGpxTrack('gpx/unverified_4.gpx', 'McVicar Creek Access Point', '#84cc16');
+    loadGpxTrack('gpx/unverified_4.gpx', 'McVicar Creek Access Point', '#9333ea'); // High-contrast purple against green topo
 
     // -------------------------------------------------------------
-    // 2. CREEKS & OCEAN OUTFALLS LAYER
+    // 2. CREEKS & OCEAN OUTFALLS LAYER (Includes Uglow Creek)
     // -------------------------------------------------------------
     const creeks = [
       { name: "Muir Creek", lat: 48.3806, lon: -123.8653 },
@@ -158,6 +179,7 @@
       { name: "Rockbottom Creek", lat: 48.4133, lon: -124.0128 },
       { name: "Sandcut Creek", lat: 48.4122, lon: -124.0136 },
       { name: "Desolation Creek", lat: 48.4172, lon: -124.0311 },
+      { name: "Uglow Creek", lat: 48.4310, lon: -124.0650 },
       { name: "First Creek", lat: 48.4239, lon: -124.0736 },
       { name: "Maidenhair Creek", lat: 48.4328, lon: -124.0917 },
       { name: "Pete Wolf Creek", lat: 48.4347, lon: -124.0969 },
@@ -189,7 +211,7 @@
     });
 
     // -------------------------------------------------------------
-    // 3. CRD CIVIC ADDRESSES LAYER
+    // 3. CRD CIVIC ADDRESSES LAYER (Address on Top, Name Below)
     // -------------------------------------------------------------
     const addresses = [
       { name: "Last House on right before Muir Creek", address: "9143 West Coast Rd", lat: 48.38006, lon: -123.86999 },
@@ -206,7 +228,8 @@
         radius: 5, color: '#0f172a', fillColor: '#ffffff', fillOpacity: 1, weight: 2
       }).bindPopup(`<div class="popup-title">📍 ${a.name}</div><div class="popup-sub">${a.address}</div>`);
 
-      marker.bindTooltip(`<b>${a.name}</b><span>${a.address}</span>`, {
+      // Address is now large & bold on top; name/description is smaller subtext below
+      marker.bindTooltip(`<b>${a.address}</b><span>${a.name}</span>`, {
         permanent: true,
         direction: 'right',
         offset: [12, 0],
