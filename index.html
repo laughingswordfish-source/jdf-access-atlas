@@ -8,13 +8,14 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   
   <style>
-    /* Hardened CSS to prevent height collapse */
-    html, body { 
+    /* Bulletproof full-screen layout */
+    body, html { 
       margin: 0; 
       padding: 0; 
       height: 100%; 
       width: 100%;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+      overflow: hidden; /* Prevents scrollbar jumping */
     }
     
     #header {
@@ -23,54 +24,33 @@
       color: #f8fafc;
       display: flex;
       align-items: center;
-      justify-content: space-between;
       padding: 0 20px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      position: absolute;
+      top: 0; left: 0; right: 0;
       z-index: 1000;
-      position: relative;
     }
     
-    #header h1 { 
-      font-size: 1.1rem; 
-      font-weight: 600; 
-      margin: 0;
-    }
+    #header h1 { font-size: 1.1rem; font-weight: 600; margin: 0; }
     
+    /* Absolute positioning prevents 0px height collapse */
     #map { 
-      height: calc(100vh - 50px);
-      width: 100%; 
-      display: block;
-      background-color: #e5e7eb; /* Adds a light gray background so you know the map div rendered even if tiles fail */
+      position: absolute;
+      top: 50px; /* Sits exactly under the header */
+      bottom: 0; 
+      left: 0; 
+      right: 0;
+      background-color: #e5e7eb; /* Light gray to prove the div rendered even if the map fails */
     }
     
-    /* Custom Badge Styles */
     .creek-label {
-      background: rgba(14, 116, 144, 0.9);
-      color: #ffffff;
-      border: 1px solid #0891b2;
-      border-radius: 4px;
-      padding: 2px 6px;
-      font-size: 11px;
-      font-weight: 600;
-      white-space: nowrap;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      background: rgba(14, 116, 144, 0.9); color: #ffffff; border: 1px solid #0891b2;
+      border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 600; white-space: nowrap;
     }
 
     .address-label {
-      background: rgba(109, 40, 217, 0.9);
-      color: #ffffff;
-      border: 1px solid #7c3aed;
-      border-radius: 4px;
-      padding: 2px 6px;
-      font-size: 11px;
-      font-weight: 600;
-      white-space: nowrap;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      background: rgba(109, 40, 217, 0.9); color: #ffffff; border: 1px solid #7c3aed;
+      border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 600; white-space: nowrap;
     }
-    
-    .leaflet-popup-content-wrapper { border-radius: 8px; padding: 4px; }
-    .popup-title { font-weight: bold; font-size: 14px; margin-bottom: 4px; color: #0f172a; }
-    .popup-sub { font-size: 12px; color: #64748b; margin-bottom: 6px; }
   </style>
 </head>
 <body>
@@ -81,73 +61,53 @@
 
   <div id="map"></div>
 
+  <script>
+    window.onerror = function(message, source, lineno, colno, error) {
+      const errDiv = document.createElement('div');
+      errDiv.style.cssText = 'position:absolute; top:60px; left:10px; right:10px; z-index:9999; background:#ef4444; color:white; padding:15px; border-radius:5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);';
+      errDiv.innerHTML = `<strong>CRITICAL SCRIPT ERROR:</strong> ${message} <br><br><small>Line: ${lineno}</small>`;
+      document.body.appendChild(errDiv);
+      return false;
+    };
+  </script>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/gpx.min.js"></script>
 
   <script>
-    console.log("Map script starting..."); // Added to verify script execution in your console
-
-    // Initialize Map - Executing directly to bypass DOMContentLoaded race conditions
+    // 1. Initialize Map
     const map = L.map('map').setView([48.4100, -124.0000], 11);
 
-    // Basemap Layers - Defaulting to reliable OSM to prevent white screens from TopoMap 403 blocks
     const osmMap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors',
       referrerPolicy: 'no-referrer-when-downgrade'
     }).addTo(map);
 
-    const topoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-      maxZoom: 17,
-      attribution: 'Map data: &copy; OSM contributors | Map style: &copy; OpenTopoMap',
-      referrerPolicy: 'no-referrer-when-downgrade'
-    });
-
-    // Layer Groups
+    // 2. Layer Groups
     const gpxLayerGroup = L.layerGroup().addTo(map);
     const creekLayerGroup = L.layerGroup().addTo(map);
     const addressLayerGroup = L.layerGroup().addTo(map);
 
-    // -------------------------------------------------------------
-    // 1. GPX TRACKS
-    // -------------------------------------------------------------
+    // 3. GPX Tracks
     function loadGpxTrack(filePath, customName, color) {
       new L.GPX(filePath, {
         async: true,
-        marker_options: {
-          startIconUrl: null,
-          endIconUrl: null,
-          shadowUrl: null,
-          wptIconUrls: { '': null } 
-        },
-        polyline_options: {
-          color: color,
-          opacity: 0.85,
-          weight: 4,
-          lineCap: 'round'
-        }
+        marker_options: { startIconUrl: null, endIconUrl: null, shadowUrl: null, wptIconUrls: { '': null } },
+        polyline_options: { color: color, opacity: 0.85, weight: 4, lineCap: 'round' }
       }).on('loaded', function(e) {
-        const gpx = e.target;
-        const distKm = (gpx.get_distance() / 1000).toFixed(2);
-        
-        gpx.bindPopup(`
-          <div class="popup-title">${customName}</div>
-          <div class="popup-sub">Distance: ${distKm} km</div>
-        `);
+        const distKm = (e.target.get_distance() / 1000).toFixed(2);
+        e.target.bindPopup(`<strong>${customName}</strong><br>Distance: ${distKm} km`);
       }).addTo(gpxLayerGroup);
     }
 
-    // Load Known GPX Files
     loadGpxTrack('gpx/Bear_Beach_JDF.gpx', 'Bear Beach Section', '#ef4444');
     loadGpxTrack('gpx/Hoard_Creek_JDF.gpx', 'Hoard Creek Section', '#f97316');
     loadGpxTrack('gpx/Lines_Creek_JDF.gpx', 'Lines Creek Section', '#eab308');
     loadGpxTrack('gpx/Loss_Creek_JDF.gpx', 'Loss Creek Section', '#10b981');
     loadGpxTrack('gpx/Unverified_Track_4.gpx', 'McVicar Creek Access Point', '#a855f7'); 
-    // Add additional loadGpxTrack lines here for any other files in your /gpx/ folder
 
-    // -------------------------------------------------------------
-    // 2. FULL CREEKS & OCEAN OUTFALLS LAYER
-    // -------------------------------------------------------------
+    // 4. Creeks
     const creeks = [
       { name: "Muir Creek", lat: 48.3806, lon: -123.8653 },
       { name: "Kirby Creek", lat: 48.3817, lon: -123.8967 },
@@ -168,8 +128,4 @@
       { name: "Pat Philip Creek", lat: 48.4406, lon: -124.1231 },
       { name: "Circo Creek", lat: 48.4411, lon: -124.1275 },
       { name: "Bent Creek", lat: 48.4431, lon: -124.1369 },
-      { name: "Fatt Creek", lat: 48.4453, lon: -124.1453 },
-      { name: "Ivanhoe Creek", lat: 48.4467, lon: -124.1544 },
-      { name: "Clinch Creek", lat: 48.4525, lon: -124.1781 },
-      { name: "Ledingham Creek", lat: 48.4542, lon: -124.1853 },
-      { name: "Hoard Creek", lat: 48.4556,
+      { name: "Fatt Creek", lat: 48.4453, lon: -124.145
