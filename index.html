@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Juan de Fuca Trail Access Atlas</title>
   
+  <!-- Self-hosted Leaflet CSS -->
   <link rel="stylesheet" href="leaflet/leaflet.css" />
   
   <style>
@@ -86,6 +87,7 @@
 
   <div id="map"></div>
 
+  <!-- Local Leaflet JS & GPX Plugin -->
   <script src="leaflet/leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/gpx.min.js"></script>
 
@@ -112,7 +114,7 @@
     const addressLayerGroup = L.layerGroup().addTo(map);
 
     // -------------------------------------------------------------
-    // 1. GPX TRACKS (All 10 Fully Restored)
+    // 1. GPX TRACKS (All 10 Verified Repository Files)
     // -------------------------------------------------------------
     function loadGpxTrack(filePath, customName, color) {
       new L.GPX(filePath, {
@@ -130,15 +132,15 @@
     }
 
     loadGpxTrack('gpx/Bear_Beach_JDF.gpx', 'Bear Beach Section', '#ef4444');
-    loadGpxTrack('gpx/Botanical_Beach_JDF.gpx', 'Botanical Beach Section', '#f97316');
-    loadGpxTrack('gpx/China_Beach_JDF.gpx', 'China Beach Section', '#f59e0b');
-    loadGpxTrack('gpx/Little_Zeballos_Track.gpx', 'Little Zeballos Track', '#10b981');
+    loadGpxTrack('gpx/Chin_Beach_Trail.gpx', 'Chin Beach Trail', '#f97316');
+    loadGpxTrack('gpx/Hoard_Creek_JDF.gpx', 'Hoard Creek Section', '#f59e0b');
+    loadGpxTrack('gpx/Lines_Creek_JDF.gpx', 'Lines Creek Section', '#10b981');
     loadGpxTrack('gpx/Loss_Creek_JDF.gpx', 'Loss Creek Section', '#06b6d4');
-    loadGpxTrack('gpx/Mystic_Beach_JDF.gpx', 'Mystic Beach Section', '#3b82f6');
-    loadGpxTrack('gpx/Parkinson_Creek_JDF.gpx', 'Parkinson Creek Section', '#8b5cf6');
-    loadGpxTrack('gpx/Sombrio_Beach_JDF.gpx', 'Sombrio Beach Section', '#ec4899');
-    loadGpxTrack('gpx/Telegram_Creek_JDF.gpx', 'Telegram Creek Section', '#64748b');
-    loadGpxTrack('gpx/Unverified_Track_4.gpx', 'McVicar Creek Access Point', '#84cc16');
+    loadGpxTrack('gpx/Mystic.gpx', 'Mystic Beach Section', '#3b82f6');
+    loadGpxTrack('gpx/juan-de-fuca-escape-trail.gpx', 'Juan de Fuca Escape Trail', '#8b5cf6');
+    loadGpxTrack('gpx/unverified_2.gpx', 'Unverified Track 2', '#ec4899');
+    loadGpxTrack('gpx/unverified_3.gpx', 'Unverified Track 3', '#64748b');
+    loadGpxTrack('gpx/unverified_4.gpx', 'McVicar Creek Access Point', '#84cc16');
 
     // -------------------------------------------------------------
     // 2. CREEKS & OCEAN OUTFALLS LAYER
