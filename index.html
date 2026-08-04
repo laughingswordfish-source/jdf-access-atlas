@@ -3,129 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Juan de Fuca Trail Access Atlas</title>
+  <title>JDF Map - Skeleton Test</title>
   
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="[https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css](https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css)" />
   
   <style>
-    /* Bulletproof full-screen layout */
-    body, html { 
-      margin: 0; 
-      padding: 0; 
-      height: 100%; 
-      width: 100%;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-      overflow: hidden; /* Prevents scrollbar jumping */
-    }
+    body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: sans-serif; overflow: hidden; }
+    #header { height: 50px; background: #1e293b; color: white; display: flex; align-items: center; padding: 0 20px; font-weight: bold; }
     
-    #header {
-      height: 50px;
-      background: #1e293b;
-      color: #f8fafc;
-      display: flex;
-      align-items: center;
-      padding: 0 20px;
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      z-index: 1000;
-    }
-    
-    #header h1 { font-size: 1.1rem; font-weight: 600; margin: 0; }
-    
-    /* Absolute positioning prevents 0px height collapse */
-    #map { 
-      position: absolute;
-      top: 50px; /* Sits exactly under the header */
-      bottom: 0; 
-      left: 0; 
-      right: 0;
-      background-color: #e5e7eb; /* Light gray to prove the div rendered even if the map fails */
-    }
-    
-    .creek-label {
-      background: rgba(14, 116, 144, 0.9); color: #ffffff; border: 1px solid #0891b2;
-      border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 600; white-space: nowrap;
-    }
-
-    .address-label {
-      background: rgba(109, 40, 217, 0.9); color: #ffffff; border: 1px solid #7c3aed;
-      border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 600; white-space: nowrap;
-    }
+    /* BRIGHT RED background so we know the CSS loaded and the map div has physical height */
+    #map { position: absolute; top: 50px; bottom: 0; left: 0; right: 0; background-color: #fca5a5; }
   </style>
 </head>
 <body>
-
-  <div id="header">
-    <h1>🌲 Juan de Fuca Trail & Access Atlas</h1>
-  </div>
-
+  <div id="header">🌲 Diagnostic Skeleton Test</div>
+  
   <div id="map"></div>
 
   <script>
-    window.onerror = function(message, source, lineno, colno, error) {
-      const errDiv = document.createElement('div');
-      errDiv.style.cssText = 'position:absolute; top:60px; left:10px; right:10px; z-index:9999; background:#ef4444; color:white; padding:15px; border-radius:5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);';
-      errDiv.innerHTML = `<strong>CRITICAL SCRIPT ERROR:</strong> ${message} <br><br><small>Line: ${lineno}</small>`;
-      document.body.appendChild(errDiv);
-      return false;
-    };
+    window.onerror = function(message) { alert("🚨 CRITICAL ERROR: " + message); };
   </script>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/gpx.min.js"></script>
+  <script src="[https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js](https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js)"></script>
 
   <script>
-    // 1. Initialize Map
+    // Load the base map
     const map = L.map('map').setView([48.4100, -124.0000], 11);
-
-    const osmMap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer('[https://tile.openstreetmap.org/](https://tile.openstreetmap.org/){z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors',
-      referrerPolicy: 'no-referrer-when-downgrade'
+      attribution: '© OpenStreetMap'
     }).addTo(map);
-
-    // 2. Layer Groups
-    const gpxLayerGroup = L.layerGroup().addTo(map);
-    const creekLayerGroup = L.layerGroup().addTo(map);
-    const addressLayerGroup = L.layerGroup().addTo(map);
-
-    // 3. GPX Tracks
-    function loadGpxTrack(filePath, customName, color) {
-      new L.GPX(filePath, {
-        async: true,
-        marker_options: { startIconUrl: null, endIconUrl: null, shadowUrl: null, wptIconUrls: { '': null } },
-        polyline_options: { color: color, opacity: 0.85, weight: 4, lineCap: 'round' }
-      }).on('loaded', function(e) {
-        const distKm = (e.target.get_distance() / 1000).toFixed(2);
-        e.target.bindPopup(`<strong>${customName}</strong><br>Distance: ${distKm} km`);
-      }).addTo(gpxLayerGroup);
-    }
-
-    loadGpxTrack('gpx/Bear_Beach_JDF.gpx', 'Bear Beach Section', '#ef4444');
-    loadGpxTrack('gpx/Hoard_Creek_JDF.gpx', 'Hoard Creek Section', '#f97316');
-    loadGpxTrack('gpx/Lines_Creek_JDF.gpx', 'Lines Creek Section', '#eab308');
-    loadGpxTrack('gpx/Loss_Creek_JDF.gpx', 'Loss Creek Section', '#10b981');
-    loadGpxTrack('gpx/Unverified_Track_4.gpx', 'McVicar Creek Access Point', '#a855f7'); 
-
-    // 4. Creeks
-    const creeks = [
-      { name: "Muir Creek", lat: 48.3806, lon: -123.8653 },
-      { name: "Kirby Creek", lat: 48.3817, lon: -123.8967 },
-      { name: "Fisherman Creek", lat: 48.3944, lon: -123.9697 },
-      { name: "Frenchome Creek", lat: 48.3925, lon: -123.9456 },
-      { name: "Begg Creek", lat: 48.3953, lon: -123.9511 },
-      { name: "Swallow Creek", lat: 48.3956, lon: -123.9575 },
-      { name: "Point No Point (Glacier Point)", lat: 48.3956, lon: -123.9861 },
-      { name: "Jacob Creek", lat: 48.4011, lon: -123.9875 },
-      { name: "Vye Creek", lat: 48.4083, lon: -123.9989 },
-      { name: "Sandcut Creek", lat: 48.4122, lon: -124.0136 },
-      { name: "Rockbottom Creek", lat: 48.4133, lon: -124.0128 },
-      { name: "Desolation Creek", lat: 48.4172, lon: -124.0311 },
-      { name: "First Creek", lat: 48.4239, lon: -124.0736 },
-      { name: "Maidenhair Creek", lat: 48.4328, lon: -124.0917 },
-      { name: "Pete Wolf Creek", lat: 48.4347, lon: -124.0969 },
-      { name: "McVicar Creek", lat: 48.4386, lon: -124.1150 },
-      { name: "Pat Philip Creek", lat: 48.4406, lon: -124.1231 },
-      { name: "Circo Creek", lat: 48.4411, lon: -124.1275 },
-      { name: "Bent Creek", lat: 48.4431, lon: -124.1369 },
-      { name: "Fatt Creek", lat: 48.4453, lon: -124.145
+  </script>
+</body>
+</html>
