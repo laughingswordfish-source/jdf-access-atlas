@@ -8,12 +8,8 @@
   <link rel="stylesheet" href="leaflet/leaflet.css" />
   
   <style>
-    /* Bulletproof full-screen layout */
     body, html { 
-      margin: 0; 
-      padding: 0; 
-      height: 100%; 
-      width: 100%;
+      margin: 0; padding: 0; height: 100%; width: 100%;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
       overflow: hidden; 
     }
@@ -34,41 +30,46 @@
     #header h1 { font-size: 1.1rem; font-weight: 600; margin: 0; }
     
     #map { 
-      position: absolute;
-      top: 50px; 
-      bottom: 0; 
-      left: 0; 
-      right: 0;
+      position: absolute; top: 50px; bottom: 0; left: 0; right: 0;
       background-color: #e5e7eb;
     }
     
-    .creek-label {
-      background: rgba(14, 116, 144, 0.9);
+    /* Clean, Large, Professional Map Labels (No awkward lines/boxes) */
+    .map-label-creek {
+      background: rgba(14, 116, 144, 0.95);
       color: #ffffff;
-      border: 1px solid #0891b2;
+      border: 1px solid #38bdf8;
       border-radius: 4px;
-      padding: 2px 6px;
-      font-size: 11px;
+      padding: 3px 8px;
+      font-size: 13px;
       font-weight: 600;
       white-space: nowrap;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
     }
 
-    .address-label {
-      background: rgba(109, 40, 217, 0.9);
+    .map-label-address {
+      background: rgba(88, 28, 135, 0.95);
       color: #ffffff;
-      border: 1px solid #7c3aed;
+      border: 1px solid #c084fc;
       border-radius: 4px;
-      padding: 2px 6px;
-      font-size: 11px;
+      padding: 4px 9px;
+      font-size: 13px;
       font-weight: 600;
       white-space: nowrap;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      line-height: 1.2;
+    }
+    
+    .map-label-address span {
+      display: block;
+      font-size: 11px;
+      font-weight: 400;
+      color: #e9d5ff;
     }
     
     .leaflet-popup-content-wrapper { border-radius: 8px; padding: 4px; }
-    .popup-title { font-weight: bold; font-size: 14px; margin-bottom: 4px; color: #0f172a; }
-    .popup-sub { font-size: 12px; color: #64748b; margin-bottom: 6px; }
+    .popup-title { font-weight: bold; font-size: 14px; margin-bottom: 2px; color: #0f172a; }
+    .popup-sub { font-size: 12px; color: #64748b; margin-bottom: 4px; }
   </style>
 </head>
 <body>
@@ -79,15 +80,6 @@
 
   <div id="map"></div>
 
-  <script>
-    window.onerror = function(message, source, lineno) {
-      const errDiv = document.createElement('div');
-      errDiv.style.cssText = 'position:absolute; top:60px; left:10px; right:10px; z-index:9999; background:#ef4444; color:white; padding:15px; border-radius:5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);';
-      errDiv.innerHTML = `<strong>SCRIPT ERROR:</strong> ${message} <br><small>Line: ${lineno}</small>`;
-      document.body.appendChild(errDiv);
-    };
-  </script>
-
   <script src="leaflet/leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/gpx.min.js"></script>
 
@@ -95,7 +87,7 @@
     // Initialize Map
     const map = L.map('map').setView([48.4100, -124.0000], 11);
 
-    // Basemap Layers
+    // Basemaps
     const osmMap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors',
@@ -114,27 +106,16 @@
     const addressLayerGroup = L.layerGroup().addTo(map);
 
     // -------------------------------------------------------------
-    // 1. GPX TRACKS
+    // 1. GPX TRACKS (All 5 Restored)
     // -------------------------------------------------------------
     function loadGpxTrack(filePath, customName, color) {
       new L.GPX(filePath, {
         async: true,
-        marker_options: {
-          startIconUrl: null,
-          endIconUrl: null,
-          shadowUrl: null,
-          wptIconUrls: { '': null }
-        },
-        polyline_options: {
-          color: color,
-          opacity: 0.85,
-          weight: 4,
-          lineCap: 'round'
-        }
+        marker_options: { startIconUrl: null, endIconUrl: null, shadowUrl: null, wptIconUrls: { '': null } },
+        polyline_options: { color: color, opacity: 0.85, weight: 4, lineCap: 'round' }
       }).on('loaded', function(e) {
         const gpx = e.target;
         const distKm = (gpx.get_distance() / 1000).toFixed(2);
-        
         gpx.bindPopup(`
           <div class="popup-title">${customName}</div>
           <div class="popup-sub">Distance: ${distKm} km</div>
@@ -182,41 +163,27 @@
     ];
 
     creeks.forEach(c => {
+      // Clean dot marker
       L.circleMarker([c.lat, c.lon], {
-        radius: 5,
-        color: '#0284c7',
-        fillColor: '#38bdf8',
-        fillOpacity: 0.9,
-        weight: 2
+        radius: 5, color: '#0369a1', fillColor: '#38bdf8', fillOpacity: 0.9, weight: 2
       }).bindPopup(`<div class="popup-title">🌊 ${c.name}</div><div class="popup-sub">Ocean Outfall / Creek Mouth</div>`).addTo(creekLayerGroup);
 
-      const offsetLat = c.lat - 0.0025;
-      const offsetLon = c.lon - 0.0025;
-
-      L.polyline([[c.lat, c.lon], [offsetLat, offsetLon]], {
-        color: '#0284c7',
-        weight: 1,
-        dashArray: '2, 4',
-        opacity: 0.6
-      }).addTo(creekLayerGroup);
-
+      // Clean label right next to point
       const labelIcon = L.divIcon({
-        className: 'creek-label-container',
-        html: `<div class="creek-label">${c.name}</div>`,
-        iconAnchor: [0, 0]
+        className: '',
+        html: `<div class="map-label-creek">${c.name}</div>`,
+        iconAnchor: [-10, 10]
       });
-
-      L.marker([offsetLat, offsetLon], { icon: labelIcon }).addTo(creekLayerGroup);
+      L.marker([c.lat, c.lon], { icon: labelIcon }).addTo(creekLayerGroup);
     });
 
     // -------------------------------------------------------------
-    // 3. CRD CIVIC ADDRESSES LAYER
+    // 3. CRD CIVIC ADDRESSES LAYER (Clean Layout, Name + Address)
     // -------------------------------------------------------------
     const addresses = [
       { name: "Last House on right before Muir Creek", address: "9143 West Coast Rd", lat: 48.38006, lon: -123.86999 },
       { name: "Janis's House", address: "9547 West Coast Rd", lat: 48.38921, lon: -123.89361 },
       { name: "Marty", address: "10430 West Coast Rd", lat: 48.39741, lon: -123.95600 },
-      { name: "10830 West Coast Rd", address: "10830 West Coast Rd", lat: 48.39786, lon: -123.98331 },
       { name: "Point No Point Resort", address: "10829 West Coast Rd", lat: 48.39781, lon: -123.98427 },
       { name: "Fossil Bay Resort", address: "11033 West Coast Rd", lat: 48.40871, lon: -123.99595 },
       { name: "Entering Jordan River", address: "11709 West Coast Rd", lat: 48.42677, lon: -124.04257 },
@@ -224,20 +191,17 @@
     ];
 
     addresses.forEach(a => {
+      // Clean dot marker
       L.circleMarker([a.lat, a.lon], {
-        radius: 6,
-        color: '#6d28d9',
-        fillColor: '#a855f7',
-        fillOpacity: 0.9,
-        weight: 2
+        radius: 6, color: '#581c87', fillColor: '#c084fc', fillOpacity: 0.9, weight: 2
       }).bindPopup(`<div class="popup-title">📍 ${a.name}</div><div class="popup-sub">${a.address}</div>`).addTo(addressLayerGroup);
 
+      // Clean label displaying both Name and Address
       const labelIcon = L.divIcon({
-        className: 'address-label-container',
-        html: `<div class="address-label">${a.name}</div>`,
-        iconAnchor: [-5, -5]
+        className: '',
+        html: `<div class="map-label-address">${a.name}<span>${a.address}</span></div>`,
+        iconAnchor: [-10, 15]
       });
-
       L.marker([a.lat, a.lon], { icon: labelIcon }).addTo(addressLayerGroup);
     });
 
@@ -257,7 +221,6 @@
 
     L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(map);
     
-    // Force Leaflet to calculate screen bounds correctly
     setTimeout(() => map.invalidateSize(), 300);
   </script>
 </body>
