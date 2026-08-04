@@ -3,36 +3,262 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JDF Map - Skeleton Test</title>
+  <title>Juan de Fuca Trail Access Atlas</title>
   
-  <link rel="stylesheet" href="[https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css](https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css)" />
+  <link rel="stylesheet" href="leaflet/leaflet.css" />
   
   <style>
-    body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: sans-serif; overflow: hidden; }
-    #header { height: 50px; background: #1e293b; color: white; display: flex; align-items: center; padding: 0 20px; font-weight: bold; }
+    /* Bulletproof full-screen layout */
+    body, html { 
+      margin: 0; 
+      padding: 0; 
+      height: 100%; 
+      width: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+      overflow: hidden; 
+    }
     
-    /* BRIGHT RED background so we know the CSS loaded and the map div has physical height */
-    #map { position: absolute; top: 50px; bottom: 0; left: 0; right: 0; background-color: #fca5a5; }
+    #header {
+      height: 50px;
+      background: #1e293b;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    #header h1 { font-size: 1.1rem; font-weight: 600; margin: 0; }
+    
+    #map { 
+      position: absolute;
+      top: 50px; 
+      bottom: 0; 
+      left: 0; 
+      right: 0;
+      background-color: #e5e7eb;
+    }
+    
+    .creek-label {
+      background: rgba(14, 116, 144, 0.9);
+      color: #ffffff;
+      border: 1px solid #0891b2;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+
+    .address-label {
+      background: rgba(109, 40, 217, 0.9);
+      color: #ffffff;
+      border: 1px solid #7c3aed;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    
+    .leaflet-popup-content-wrapper { border-radius: 8px; padding: 4px; }
+    .popup-title { font-weight: bold; font-size: 14px; margin-bottom: 4px; color: #0f172a; }
+    .popup-sub { font-size: 12px; color: #64748b; margin-bottom: 6px; }
   </style>
 </head>
 <body>
-  <div id="header">🌲 Diagnostic Skeleton Test</div>
-  
+
+  <div id="header">
+    <h1>🌲 Juan de Fuca Trail & Access Atlas</h1>
+  </div>
+
   <div id="map"></div>
 
   <script>
-    window.onerror = function(message) { alert("🚨 CRITICAL ERROR: " + message); };
+    window.onerror = function(message, source, lineno) {
+      const errDiv = document.createElement('div');
+      errDiv.style.cssText = 'position:absolute; top:60px; left:10px; right:10px; z-index:9999; background:#ef4444; color:white; padding:15px; border-radius:5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);';
+      errDiv.innerHTML = `<strong>SCRIPT ERROR:</strong> ${message} <br><small>Line: ${lineno}</small>`;
+      document.body.appendChild(errDiv);
+    };
   </script>
 
-  <script src="[https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js](https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js)"></script>
+  <script src="leaflet/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/gpx.min.js"></script>
 
   <script>
-    // Load the base map
+    // Initialize Map
     const map = L.map('map').setView([48.4100, -124.0000], 11);
-    L.tileLayer('[https://tile.openstreetmap.org/](https://tile.openstreetmap.org/){z}/{x}/{y}.png', {
+
+    // Basemap Layers
+    const osmMap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '© OpenStreetMap'
+      attribution: '&copy; OpenStreetMap contributors',
+      referrerPolicy: 'no-referrer-when-downgrade'
     }).addTo(map);
+
+    const topoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      maxZoom: 17,
+      attribution: 'Map data: &copy; OSM contributors | Map style: &copy; OpenTopoMap',
+      referrerPolicy: 'no-referrer-when-downgrade'
+    });
+
+    // Layer Groups
+    const gpxLayerGroup = L.layerGroup().addTo(map);
+    const creekLayerGroup = L.layerGroup().addTo(map);
+    const addressLayerGroup = L.layerGroup().addTo(map);
+
+    // -------------------------------------------------------------
+    // 1. GPX TRACKS
+    // -------------------------------------------------------------
+    function loadGpxTrack(filePath, customName, color) {
+      new L.GPX(filePath, {
+        async: true,
+        marker_options: {
+          startIconUrl: null,
+          endIconUrl: null,
+          shadowUrl: null,
+          wptIconUrls: { '': null }
+        },
+        polyline_options: {
+          color: color,
+          opacity: 0.85,
+          weight: 4,
+          lineCap: 'round'
+        }
+      }).on('loaded', function(e) {
+        const gpx = e.target;
+        const distKm = (gpx.get_distance() / 1000).toFixed(2);
+        
+        gpx.bindPopup(`
+          <div class="popup-title">${customName}</div>
+          <div class="popup-sub">Distance: ${distKm} km</div>
+        `);
+      }).addTo(gpxLayerGroup);
+    }
+
+    loadGpxTrack('gpx/Bear_Beach_JDF.gpx', 'Bear Beach Section', '#ef4444');
+    loadGpxTrack('gpx/Hoard_Creek_JDF.gpx', 'Hoard Creek Section', '#f97316');
+    loadGpxTrack('gpx/Lines_Creek_JDF.gpx', 'Lines Creek Section', '#eab308');
+    loadGpxTrack('gpx/Loss_Creek_JDF.gpx', 'Loss Creek Section', '#10b981');
+    loadGpxTrack('gpx/Unverified_Track_4.gpx', 'McVicar Creek Access Point', '#a855f7'); 
+
+    // -------------------------------------------------------------
+    // 2. CREEKS & OCEAN OUTFALLS LAYER
+    // -------------------------------------------------------------
+    const creeks = [
+      { name: "Muir Creek", lat: 48.3806, lon: -123.8653 },
+      { name: "Kirby Creek", lat: 48.3817, lon: -123.8967 },
+      { name: "Fisherman Creek", lat: 48.3944, lon: -123.9697 },
+      { name: "Frenchome Creek", lat: 48.3925, lon: -123.9456 },
+      { name: "Begg Creek", lat: 48.3953, lon: -123.9511 },
+      { name: "Swallow Creek", lat: 48.3956, lon: -123.9575 },
+      { name: "Point No Point (Glacier Point)", lat: 48.3956, lon: -123.9861 },
+      { name: "Jacob Creek", lat: 48.4011, lon: -123.9875 },
+      { name: "Vye Creek", lat: 48.4083, lon: -123.9989 },
+      { name: "Rockbottom Creek", lat: 48.4133, lon: -124.0128 },
+      { name: "Sandcut Creek", lat: 48.4122, lon: -124.0136 },
+      { name: "Desolation Creek", lat: 48.4172, lon: -124.0311 },
+      { name: "First Creek", lat: 48.4239, lon: -124.0736 },
+      { name: "Maidenhair Creek", lat: 48.4328, lon: -124.0917 },
+      { name: "Pete Wolf Creek", lat: 48.4347, lon: -124.0969 },
+      { name: "McVicar Creek", lat: 48.4386, lon: -124.1150 },
+      { name: "Pat Philip Creek", lat: 48.4406, lon: -124.1231 },
+      { name: "Circo Creek", lat: 48.4411, lon: -124.1275 },
+      { name: "Bent Creek", lat: 48.4431, lon: -124.1369 },
+      { name: "Fatt Creek", lat: 48.4453, lon: -124.1453 },
+      { name: "Ivanhoe Creek", lat: 48.4467, lon: -124.1544 },
+      { name: "Clinch Creek", lat: 48.4525, lon: -124.1781 },
+      { name: "Ledingham Creek", lat: 48.4542, lon: -124.1853 },
+      { name: "Hoard Creek", lat: 48.4556, lon: -124.1936 },
+      { name: "Newmarch Creek", lat: 48.4578, lon: -124.2072 },
+      { name: "Lines Creek", lat: 48.4661, lon: -124.2339 },
+      { name: "Loss Creek", lat: 48.4803, lon: -124.2731 }
+    ];
+
+    creeks.forEach(c => {
+      L.circleMarker([c.lat, c.lon], {
+        radius: 5,
+        color: '#0284c7',
+        fillColor: '#38bdf8',
+        fillOpacity: 0.9,
+        weight: 2
+      }).bindPopup(`<div class="popup-title">🌊 ${c.name}</div><div class="popup-sub">Ocean Outfall / Creek Mouth</div>`).addTo(creekLayerGroup);
+
+      const offsetLat = c.lat - 0.0025;
+      const offsetLon = c.lon - 0.0025;
+
+      L.polyline([[c.lat, c.lon], [offsetLat, offsetLon]], {
+        color: '#0284c7',
+        weight: 1,
+        dashArray: '2, 4',
+        opacity: 0.6
+      }).addTo(creekLayerGroup);
+
+      const labelIcon = L.divIcon({
+        className: 'creek-label-container',
+        html: `<div class="creek-label">${c.name}</div>`,
+        iconAnchor: [0, 0]
+      });
+
+      L.marker([offsetLat, offsetLon], { icon: labelIcon }).addTo(creekLayerGroup);
+    });
+
+    // -------------------------------------------------------------
+    // 3. CRD CIVIC ADDRESSES LAYER
+    // -------------------------------------------------------------
+    const addresses = [
+      { name: "Last House on right before Muir Creek", address: "9143 West Coast Rd", lat: 48.38006, lon: -123.86999 },
+      { name: "Janis's House", address: "9547 West Coast Rd", lat: 48.38921, lon: -123.89361 },
+      { name: "Marty", address: "10430 West Coast Rd", lat: 48.39741, lon: -123.95600 },
+      { name: "10830 West Coast Rd", address: "10830 West Coast Rd", lat: 48.39786, lon: -123.98331 },
+      { name: "Point No Point Resort", address: "10829 West Coast Rd", lat: 48.39781, lon: -123.98427 },
+      { name: "Fossil Bay Resort", address: "11033 West Coast Rd", lat: 48.40871, lon: -123.99595 },
+      { name: "Entering Jordan River", address: "11709 West Coast Rd", lat: 48.42677, lon: -124.04257 },
+      { name: "Jordan River Log Sort", address: "11970 West Coast Rd", lat: 48.42377, lon: -124.06019 }
+    ];
+
+    addresses.forEach(a => {
+      L.circleMarker([a.lat, a.lon], {
+        radius: 6,
+        color: '#6d28d9',
+        fillColor: '#a855f7',
+        fillOpacity: 0.9,
+        weight: 2
+      }).bindPopup(`<div class="popup-title">📍 ${a.name}</div><div class="popup-sub">${a.address}</div>`).addTo(addressLayerGroup);
+
+      const labelIcon = L.divIcon({
+        className: 'address-label-container',
+        html: `<div class="address-label">${a.name}</div>`,
+        iconAnchor: [-5, -5]
+      });
+
+      L.marker([a.lat, a.lon], { icon: labelIcon }).addTo(addressLayerGroup);
+    });
+
+    // -------------------------------------------------------------
+    // 4. LAYER CONTROLS
+    // -------------------------------------------------------------
+    const baseMaps = {
+      "Standard OpenStreetMap": osmMap,
+      "Topographic Map": topoMap
+    };
+
+    const overlayMaps = {
+      "🥾 GPX Trails": gpxLayerGroup,
+      "🌊 Creeks & Ocean Outfalls": creekLayerGroup,
+      "📍 CRD Civic Addresses": addressLayerGroup
+    };
+
+    L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(map);
+    
+    // Force Leaflet to calculate screen bounds correctly
+    setTimeout(() => map.invalidateSize(), 300);
   </script>
 </body>
 </html>
