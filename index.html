@@ -112,7 +112,7 @@
     const addressLayerGroup = L.layerGroup().addTo(map);
 
     // -------------------------------------------------------------
-    // 1. GPX TRACKS (All 5 Fully Restored)
+    // 1. GPX TRACKS (All 10 Fully Restored)
     // -------------------------------------------------------------
     function loadGpxTrack(filePath, customName, color) {
       new L.GPX(filePath, {
@@ -130,10 +130,15 @@
     }
 
     loadGpxTrack('gpx/Bear_Beach_JDF.gpx', 'Bear Beach Section', '#ef4444');
-    loadGpxTrack('gpx/Hoard_Creek_JDF.gpx', 'Hoard Creek Section', '#f97316');
-    loadGpxTrack('gpx/Lines_Creek_JDF.gpx', 'Lines Creek Section', '#eab308');
-    loadGpxTrack('gpx/Loss_Creek_JDF.gpx', 'Loss Creek Section', '#10b981');
-    loadGpxTrack('gpx/Unverified_Track_4.gpx', 'McVicar Creek Access Point', '#a855f7'); 
+    loadGpxTrack('gpx/Botanical_Beach_JDF.gpx', 'Botanical Beach Section', '#f97316');
+    loadGpxTrack('gpx/China_Beach_JDF.gpx', 'China Beach Section', '#f59e0b');
+    loadGpxTrack('gpx/Little_Zeballos_Track.gpx', 'Little Zeballos Track', '#10b981');
+    loadGpxTrack('gpx/Loss_Creek_JDF.gpx', 'Loss Creek Section', '#06b6d4');
+    loadGpxTrack('gpx/Mystic_Beach_JDF.gpx', 'Mystic Beach Section', '#3b82f6');
+    loadGpxTrack('gpx/Parkinson_Creek_JDF.gpx', 'Parkinson Creek Section', '#8b5cf6');
+    loadGpxTrack('gpx/Sombrio_Beach_JDF.gpx', 'Sombrio Beach Section', '#ec4899');
+    loadGpxTrack('gpx/Telegram_Creek_JDF.gpx', 'Telegram Creek Section', '#64748b');
+    loadGpxTrack('gpx/Unverified_Track_4.gpx', 'McVicar Creek Access Point', '#84cc16');
 
     // -------------------------------------------------------------
     // 2. CREEKS & OCEAN OUTFALLS LAYER
@@ -182,7 +187,7 @@
     });
 
     // -------------------------------------------------------------
-    // 3. CRD CIVIC ADDRESSES LAYER (Clean, Fully Expanded Tooltips)
+    // 3. CRD CIVIC ADDRESSES LAYER
     // -------------------------------------------------------------
     const addresses = [
       { name: "Last House on right before Muir Creek", address: "9143 West Coast Rd", lat: 48.38006, lon: -123.86999 },
