@@ -40,16 +40,16 @@
       color: #ffffff;
       border: 1px solid #38bdf8;
       border-radius: 4px;
-      padding: 2px 6px;
+      padding: 3px 8px;
       font-size: 12px;
       font-weight: 600;
       white-space: nowrap;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
 
-    /* Clean Black & White Address Badges with Pointer Arrow */
+    /* Professional, Wide Horizontal Address Badges (High Legibility) */
     .map-label-address {
-      position: relative;
-      background: #000000;
+      background: #0f172a;
       color: #ffffff;
       border: 1px solid #334155;
       border-radius: 6px;
@@ -57,28 +57,15 @@
       font-size: 13px;
       font-weight: 700;
       white-space: nowrap;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-      line-height: 1.3;
-    }
-    
-    /* Small arrow pointing down-left toward the coordinate pin */
-    .map-label-address::after {
-      content: '';
-      position: absolute;
-      bottom: -6px;
-      left: 10px;
-      border-width: 6px 6px 0;
-      border-style: solid;
-      border-color: #000000 transparent;
-      display: block;
-      width: 0;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+      line-height: 1.4;
     }
 
     .map-label-address span {
       display: block;
       font-size: 11px;
       font-weight: 400;
-      color: #94a3b8;
+      color: #cbd5e1; /* Pale gray subtext for street address */
     }
     
     .leaflet-popup-content-wrapper { border-radius: 8px; padding: 4px; }
@@ -120,7 +107,7 @@
     const addressLayerGroup = L.layerGroup().addTo(map);
 
     // -------------------------------------------------------------
-    // 1. GPX TRACKS (All 5 Fully Restored)
+    // 1. GPX TRACKS (All 5 Restored)
     // -------------------------------------------------------------
     function loadGpxTrack(filePath, customName, color) {
       new L.GPX(filePath, {
@@ -184,13 +171,13 @@
       const labelIcon = L.divIcon({
         className: '',
         html: `<div class="map-label-creek">${c.name}</div>`,
-        iconAnchor: [-8, 8]
+        iconAnchor: [-10, 10]
       });
       L.marker([c.lat, c.lon], { icon: labelIcon }).addTo(creekLayerGroup);
     });
 
     // -------------------------------------------------------------
-    // 3. CRD CIVIC ADDRESSES LAYER (Clean Black & White Design)
+    // 3. CRD CIVIC ADDRESSES LAYER (Clean Wide Horizontal Layout)
     // -------------------------------------------------------------
     const addresses = [
       { name: "Last House on right before Muir Creek", address: "9143 West Coast Rd", lat: 48.38006, lon: -123.86999 },
@@ -205,14 +192,14 @@
     addresses.forEach(a => {
       // Clean marker dot on the road location
       L.circleMarker([a.lat, a.lon], {
-        radius: 5, color: '#000000', fillColor: '#ffffff', fillOpacity: 1, weight: 2
+        radius: 5, color: '#0f172a', fillColor: '#ffffff', fillOpacity: 1, weight: 2
       }).bindPopup(`<div class="popup-title">📍 ${a.name}</div><div class="popup-sub">${a.address}</div>`).addTo(addressLayerGroup);
 
-      // High contrast black badge with name + address subtext
+      // Wide horizontal badge displaying Name + Address subtext clearly
       const labelIcon = L.divIcon({
         className: '',
         html: `<div class="map-label-address">${a.name}<span>${a.address}</span></div>`,
-        iconAnchor: [-5, 25]
+        iconAnchor: [-12, 18]
       });
       L.marker([a.lat, a.lon], { icon: labelIcon }).addTo(addressLayerGroup);
     });
